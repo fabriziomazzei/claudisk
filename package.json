@@ -1,0 +1,11 @@
+{
+  "name": "claudisk",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ClauDisk browser extension packaging helpers",
+  "scripts": {
+    "zip": "node scripts/zip-extension.js",
+    "check": "node --check src/background/sw.js && node --check src/background/offscreen.js && node --check src/content/content.js && node --check src/ui/claudisk.js && node --check src/ui/i18n.js && node --check src/ui/onboarding.js && node --check src/lib/api.js && node --check src/lib/badge.js && node --check src/lib/capture.js && node --check src/lib/sync-plan.js && node --check src/lib/vault-verify.js && node --check src/lib/chat-enrich.js"
+  }
+}

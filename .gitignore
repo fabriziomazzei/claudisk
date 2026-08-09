@@ -1,0 +1,15 @@
+samples/
+claude-brain/
+docs/screenshots/demo-brain/
+_raw/
+.DS_Store
+Thumbs.db
+desktop.ini
+node_modules/
+dist/
+*.zip
+.idea/
+.vscode/
+*.log
+.env
+.env.*

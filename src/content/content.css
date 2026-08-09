@@ -1,0 +1,70 @@
+#claudisk-aggiorna {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9990;
+  margin: 0;
+  padding: 8px 14px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: #1a1a18;
+  color: #f7f5f1;
+  font: 600 13px/1.2 "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  max-width: min(360px, calc(100vw - 40px));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#claudisk-aggiorna:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+#claudisk-aggiorna:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+#claudisk-aggiorna:disabled,
+#claudisk-aggiorna.claudisk-loading {
+  cursor: wait;
+  opacity: 1;
+  background: #5c5a54;
+  color: #f7f5f1;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: none;
+  animation: claudisk-pulse 1.2s ease-in-out infinite;
+}
+
+#claudisk-aggiorna.claudisk-failing:not(.claudisk-loading) {
+  background: #8b1e1e;
+  color: #fff7f5;
+  border-color: rgba(0, 0, 0, 0.2);
+  animation: none;
+}
+
+@keyframes claudisk-pulse {
+  0%,
+  100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  #claudisk-aggiorna:not(.claudisk-failing):not(.claudisk-loading):not(:disabled) {
+    border-color: rgba(255, 255, 255, 0.14);
+    background: #f7f5f1;
+    color: #1a1a18;
+  }
+
+  #claudisk-aggiorna.claudisk-loading,
+  #claudisk-aggiorna:disabled {
+    background: #6b6963;
+    color: #f7f5f1;
+  }
+}

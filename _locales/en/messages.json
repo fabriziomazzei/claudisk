@@ -1,0 +1,14 @@
+{
+  "extName": {
+    "message": "ClauDisk",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "Your Claude.ai projects, mirrored live to disk as Markdown for Cursor and Claude Code.",
+    "description": "Extension description"
+  },
+  "actionTitle": {
+    "message": "ClauDisk",
+    "description": "Browser action tooltip"
+  }
+}

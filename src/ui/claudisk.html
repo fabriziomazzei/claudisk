@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ClauDisk</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="../../icons/icon-32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="../../icons/icon-16.png" />
+    <link rel="stylesheet" href="claudisk.css" />
+  </head>
+  <body data-mode="loading" data-settings="closed">
+    <header class="top">
+      <div class="brand">
+        <div class="brand-row">
+          <img
+            class="brand-mark"
+            src="../../icons/icon-48.png"
+            width="40"
+            height="40"
+            alt=""
+            decoding="async"
+          />
+          <div class="brand-text">
+            <div class="brand-title-row">
+              <h1>ClauDisk</h1>
+              <span
+                id="version-badge"
+                class="version-badge"
+                data-i18n-title="meta.versionTitle"
+                title="Extension version"
+                >…</span
+              >
+            </div>
+            <p class="lede" data-i18n="meta.lede">
+              Your Claude.ai projects, mirrored live to disk
+            </p>
+          </div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button
+          type="button"
+          id="btn-stats"
+          class="btn linkish"
+          aria-haspopup="dialog"
+          data-i18n="nav.stats"
+        >
+          Statistics
+        </button>
+        <button
+          type="button"
+          id="btn-settings"
+          class="btn soft"
+          aria-expanded="false"
+          aria-controls="settings-panel"
+          data-i18n="nav.settings"
+        >
+          Settings
+        </button>
+      </div>
+    </header>
+
+    <div class="shell">
+      <div id="app-main" class="app-main">
+        <section id="setup-banner" class="setup-banner" hidden>
+          <h2 data-i18n="setup.title">Connect a folder</h2>
+          <p data-i18n="setup.body">
+            Choose the local folder where ClauDisk will write projects, chats, and indexes. Open
+            Settings on the right and finish setup.
+          </p>
+        </section>
+
+        <section id="hero" class="hero" data-state="loading">
+          <div class="hero-grid">
+            <div class="stat">
+              <span class="stat-label" data-i18n="stat.folder">Folder</span>
+              <span id="stat-folder" class="stat-value">…</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label" data-i18n="stat.permission">Permission</span>
+              <span id="stat-permission" class="stat-value">…</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label" data-i18n="stat.last">Last update</span>
+              <span id="stat-last" class="stat-value">…</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label" data-i18n="stat.disk">On disk</span>
+              <span id="stat-disk" class="stat-value">…</span>
+            </div>
+          </div>
+          <p id="hero-note" class="hero-note"></p>
+        </section>
+
+        <section class="run-bar">
+          <div class="run-actions">
+            <button type="button" id="btn-update" class="btn primary" disabled data-i18n="btn.update">
+              Update
+            </button>
+            <button type="button" id="btn-full-sync" class="btn soft" disabled data-i18n="btn.fullSync">
+              Full sync
+            </button>
+            <button type="button" id="btn-verify" class="btn soft" disabled data-i18n="btn.verify">
+              Check vault
+            </button>
+            <button type="button" id="btn-pause" class="btn soft" hidden data-i18n="btn.pause">
+              Pause
+            </button>
+            <button type="button" id="btn-abort" class="btn danger" hidden data-i18n="btn.abort">
+              Stop
+            </button>
+          </div>
+
+          <div id="plan-panel" class="plan-panel" hidden>
+            <div class="plan-top">
+              <div>
+                <div class="plan-kind" id="plan-kind" data-i18n="plan.defaultKind">Sync plan</div>
+                <p class="plan-note muted" id="plan-note"></p>
+              </div>
+              <div class="plan-actions">
+                <button type="button" id="btn-plan-cancel" class="btn soft" data-i18n="btn.planCancel">
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  id="btn-plan-confirm"
+                  class="btn primary"
+                  data-i18n="btn.planConfirm"
+                >
+                  Confirm and write
+                </button>
+              </div>
+            </div>
+            <div id="plan-chips" class="sum-chips"></div>
+            <div id="plan-body" class="plan-body"></div>
+          </div>
+
+          <div id="progress-wrap" class="progress-wrap" hidden>
+            <ol id="phase-timeline" class="phase-timeline" data-i18n-attr="aria-label" data-i18n="phase.aria">
+              <li data-phase="docs" data-i18n="phase.docs">Projects</li>
+              <li data-phase="chats" data-i18n="phase.chats">Chats</li>
+              <li data-phase="memory" data-i18n="phase.memory">Memory</li>
+              <li data-phase="deletions" data-i18n="phase.deletions">Deletions</li>
+              <li data-phase="indici" data-i18n="phase.indici">Indexes</li>
+              <li data-phase="done" data-i18n="phase.done">Done</li>
+            </ol>
+            <div class="progress-meta">
+              <span id="progress-label" data-i18n="progress.inProgress">In progress…</span>
+              <span id="progress-eta"></span>
+            </div>
+            <div class="progress-track" aria-hidden="true">
+              <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <div id="progress-count" class="progress-count"></div>
+          </div>
+        </section>
+
+        <section id="summary-panel" class="summary-panel" hidden>
+          <div id="summary-body"></div>
+        </section>
+
+        <section id="verify-panel" class="panel verify-panel" hidden>
+          <div class="panel-head">
+            <h2 data-i18n="verify.title">Vault check</h2>
+            <button type="button" id="btn-verify-hide" class="btn linkish" data-i18n="btn.verifyHide">
+              Hide
+            </button>
+          </div>
+          <div id="verify-body"></div>
+        </section>
+
+        <section id="errors-panel" class="panel errors-panel" hidden>
+          <div class="panel-head">
+            <h2 data-i18n="errors.title">Errors</h2>
+            <button type="button" id="btn-retry-errors" class="btn soft" data-i18n="btn.retryErrors">
+              Retry failed
+            </button>
+          </div>
+          <ul id="errors-list" class="errors-list"></ul>
+        </section>
+
+        <section class="panel log-panel">
+          <div class="panel-head">
+            <h2 data-i18n="log.title">Activity</h2>
+            <button type="button" id="btn-copy-log" class="btn soft" data-i18n="btn.copyLog">
+              Copy log
+            </button>
+          </div>
+          <div id="log" class="log" data-i18n-attr="aria-label" data-i18n="log.aria"></div>
+        </section>
+      </div>
+
+      <aside
+        id="settings-panel"
+        class="settings-panel"
+        data-i18n-attr="aria-label"
+        data-i18n="settings.title"
+        hidden
+      >
+        <div class="settings-panel-head">
+          <h2 data-i18n="settings.title">Settings</h2>
+          <button type="button" id="btn-settings-close" class="btn soft" data-i18n="btn.close">
+            Close
+          </button>
+        </div>
+
+        <section class="settings-block">
+          <h3 data-i18n="settings.folder">Folder</h3>
+          <p class="settings-hint" data-i18n="settings.folderHint">
+            Required. ClauDisk saves markdown, knowledge, and indexes here.
+          </p>
+          <p id="set-folder-status" class="set-folder-status">No folder connected.</p>
+          <div class="settings-folder-actions">
+            <button type="button" id="btn-choose-folder" class="btn primary" data-i18n="btn.chooseFolder">
+              Choose folder
+            </button>
+            <button type="button" id="btn-reconfirm" class="btn soft" hidden data-i18n="btn.reconfirm">
+              Reconfirm permission
+            </button>
+          </div>
+          <p id="set-folder-feedback" class="settings-feedback" role="status"></p>
+        </section>
+
+        <form id="settings-form" class="settings-form">
+          <section class="settings-block">
+            <h3 data-i18n="settings.language">Language</h3>
+            <label class="select-row">
+              <select id="set-locale" aria-label="Language">
+                <option value="en">English</option>
+                <option value="it">Italiano</option>
+              </select>
+            </label>
+          </section>
+
+          <section class="settings-block">
+            <h3 data-i18n="settings.download">What to include</h3>
+            <p class="settings-hint" data-i18n="settings.downloadHint">
+              Chats, project docs, and indexes are always included. Toggle optional pieces here.
+            </p>
+            <label class="check">
+              <input type="checkbox" id="set-artifacts" />
+              <span data-i18n="settings.artifacts">Artifacts generated in chats</span>
+            </label>
+            <p class="settings-hint tight" data-i18n="settings.artifactsHint">
+              HTML, scripts, and files Claude produced (artifacts/ folder).
+            </p>
+            <label class="check">
+              <input type="checkbox" id="set-attachments" />
+              <span data-i18n="settings.attachments">Message attachments</span>
+            </label>
+            <p class="settings-hint tight" data-i18n="settings.attachmentsHint">
+              If off: chats keep references without downloading files.
+            </p>
+            <label class="check">
+              <input type="checkbox" id="set-project-files" />
+              <span data-i18n="settings.projectFiles">Files uploaded to projects</span>
+            </label>
+            <p class="settings-hint tight" data-i18n="settings.projectFilesHint">
+              PDFs and other files in knowledge/ (not inline text docs).
+            </p>
+          </section>
+
+          <section class="settings-block">
+            <h3 data-i18n="settings.maintenance">Maintenance</h3>
+            <p class="settings-hint" data-i18n="settings.deletedHint">
+              Chats deleted on Claude are moved into the _deleted/ folder.
+            </p>
+            <p class="settings-hint" id="deleted-stats">_deleted/: —</p>
+            <button type="button" id="btn-empty-deleted" class="btn soft" data-i18n="btn.emptyDeleted">
+              Empty _deleted/
+            </button>
+          </section>
+
+          <section class="settings-block">
+            <h3 data-i18n="settings.sync">Sync</h3>
+            <label class="check">
+              <input type="checkbox" id="set-confirm-write" />
+              <span data-i18n="settings.confirmWrite">Show plan and ask before writing</span>
+            </label>
+            <p class="settings-hint tight" data-i18n="settings.confirmWriteHint">
+              Lists chats/projects to touch; writing starts only after Confirm.
+            </p>
+            <label class="check">
+              <input type="checkbox" id="set-write-tags" />
+              <span data-i18n="settings.writeTags">Heuristic tags in chat frontmatter</span>
+            </label>
+            <p class="settings-hint tight" data-i18n="settings.writeTagsHint">
+              project/…, starred, model/…, month. No external API.
+            </p>
+            <label class="check">
+              <input type="checkbox" id="set-write-related" />
+              <span data-i18n="settings.writeRelated">Links to related chats in the same project</span>
+            </label>
+            <p class="settings-hint tight" data-i18n="settings.writeRelatedHint">
+              “Related” section + YAML field. Local heuristics only.
+            </p>
+          </section>
+
+          <section class="settings-block">
+            <h3 data-i18n="settings.ui">Interface</h3>
+            <label class="check">
+              <input type="checkbox" id="set-autostart" />
+              <span data-i18n="settings.autostart">Start update when this tab opens</span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="set-close-tab" />
+              <span data-i18n="settings.closeTab">Close tab after a successful capture</span>
+            </label>
+            <h3 class="settings-sub" data-i18n="settings.tour">Product tour</h3>
+            <p class="settings-hint" data-i18n="settings.tourHint">
+              Replay the spotlight walkthrough of the main controls.
+            </p>
+            <button type="button" id="btn-replay-tour" class="btn soft" data-i18n="btn.replayTour">
+              Show tour again
+            </button>
+            <h3 class="settings-sub" data-i18n="settings.history">Sync history</h3>
+            <p class="settings-hint" data-i18n="settings.historyHint">
+              Recent successful and failed sync runs stored on this browser.
+            </p>
+            <button type="button" id="btn-history" class="btn soft" data-i18n="btn.openHistory">
+              Open sync history
+            </button>
+          </section>
+
+          <div class="settings-form-actions">
+            <button type="submit" class="btn primary" data-i18n="btn.saveSettings">Save options</button>
+          </div>
+        </form>
+      </aside>
+    </div>
+
+    <footer class="site-footer">
+      <div class="footer-main">
+        <strong>ClauDisk</strong>
+        <span id="footer-version" class="footer-version"></span>
+        <span class="footer-sep">·</span>
+        <span data-i18n="footer.by">by</span>
+        <a
+          class="footer-author"
+          href="https://www.fabriziomazzei.it/"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Fabrizio Mazzei</a
+        >
+        <span class="footer-sep">·</span>
+        <span>MIT License</span>
+      </div>
+      <p class="footer-disclaimer">
+        <span data-i18n="footer.disclaimer"
+          >Not affiliated with Anthropic. Use at your own risk. Data stays in the folder you
+          choose.</span
+        >
+        <a
+          id="footer-home"
+          href="https://www.claudisk.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          >www.claudisk.com</a
+        >
+        ·
+        <a
+          id="footer-privacy"
+          href="../../PRIVACY.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          data-i18n="footer.privacy"
+          >Privacy</a
+        >
+      </p>
+      <p class="footer-copy">
+        Copyright © 2026
+        <a href="https://www.fabriziomazzei.it/" target="_blank" rel="noopener noreferrer"
+          >Fabrizio Mazzei</a
+        >
+      </p>
+    </footer>
+
+    <div id="toast" class="toast" hidden role="status" aria-live="polite"></div>
+
+    <dialog id="stats-dialog" class="stats-dialog">
+      <div class="dialog-head">
+        <h2 data-i18n="stats.title">Archive statistics</h2>
+        <button type="button" id="btn-stats-close" class="btn soft" data-i18n="btn.close">
+          Close
+        </button>
+      </div>
+      <div id="insights-body" class="insights-body stats-dialog-body">
+        <p class="muted" data-i18n="insights.loading">Loading stats…</p>
+      </div>
+    </dialog>
+
+    <dialog id="history-dialog" class="history-dialog">
+      <div class="dialog-head">
+        <h2 data-i18n="history.title">Sync history</h2>
+        <button type="button" id="btn-history-close" class="btn soft" data-i18n="btn.close">
+          Close
+        </button>
+      </div>
+      <ul id="history-list" class="history-list"></ul>
+      <p id="history-empty" class="muted" data-i18n="history.empty">No syncs yet.</p>
+    </dialog>
+
+    <script type="module" src="claudisk.js"></script>
+  </body>
+</html>
