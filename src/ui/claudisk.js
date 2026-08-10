@@ -446,7 +446,15 @@ function setView(view, opts = {}) {
  * @param {string} section
  */
 function setSettingsSection(section) {
-  const allowed = ["vault", "capture", "sync", "app", "history"];
+  const allowed = [
+    "vault",
+    "capture",
+    "sync",
+    "app",
+    "history",
+    "whatsnew",
+    "about",
+  ];
   if (!allowed.includes(section)) section = "vault";
   currentSettingsSection = section;
   document.body.dataset.settingsSection = section;
