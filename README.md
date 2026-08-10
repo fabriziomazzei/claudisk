@@ -13,7 +13,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-c45c26?style=flat-square" alt="MIT" /></a>
   <a href="./manifest.json"><img src="https://img.shields.io/badge/Chrome-MV3-4285F4?style=flat-square" alt="Manifest V3" /></a>
   <a href="./CHANGELOG.md"><img src="https://img.shields.io/badge/version-1.0.0-1a1a18?style=flat-square" alt="1.0.0" /></a>
-  <a href="https://claudisk.vercel.app"><img src="https://img.shields.io/badge/site-claudisk.vercel.app-000?style=flat-square" alt="Website" /></a>
+  <a href="https://claudisk-web.vercel.app"><img src="https://img.shields.io/badge/site-claudisk--web.vercel.app-000?style=flat-square" alt="Website" /></a>
 </p>
 
 > Not affiliated with Anthropic. Unofficial community tool. Use at your own risk and respect Claude’s Terms of Service.
@@ -96,7 +96,7 @@ Most tools do a **one-shot export**. ClauDisk keeps a **living folder** on your 
 
 Optional packaging: `npm run zip` → `dist/claudisk-1.0.0.zip`
 
-Site / docs: [claudisk.vercel.app](https://claudisk.vercel.app)
+Site / docs: [claudisk-web.vercel.app](https://claudisk-web.vercel.app)
 
 ---
 
@@ -144,7 +144,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md). Please read [CODE_OF_CONDUCT.md](./COD
 ## Roadmap
 
 - [ ] Chrome Web Store listing
-- [ ] Marketing site polish on [claudisk.vercel.app](https://claudisk.vercel.app)
+- [ ] Marketing site polish on [claudisk-web.vercel.app](https://claudisk-web.vercel.app)
 - [ ] <!-- PLACEHOLDER: your next idea -->
 
 Fancy looping demos (OmniRoute-style motion) belong on the **site**, not necessarily in this README - GitHub is happier with static screenshots; the site can host lightweight Lottie / CSS / short GIF loops.
