@@ -210,14 +210,26 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 async function openMirrorTab() {
   const url = chrome.runtime.getURL("src/ui/claudisk.html");
-  const existing = await chrome.tabs.query({ url });
-  if (existing.length > 0 && existing[0].id != null) {
-    await chrome.tabs.update(existing[0].id, { active: true });
-    if (existing[0].windowId != null) {
-      await chrome.windows.update(existing[0].windowId, { focused: true });
+
+  // Prefer getContexts: works for our own extension pages without the "tabs"
+  // permission (tabs.query({ url }) needs it and can fail/race with offscreen).
+  try {
+    const contexts = await chrome.runtime.getContexts({
+      contextTypes: ["TAB"],
+      documentUrls: [url],
+    });
+    const existing = contexts.find((ctx) => ctx.tabId >= 0);
+    if (existing) {
+      await chrome.tabs.update(existing.tabId, { active: true });
+      if (existing.windowId >= 0) {
+        await chrome.windows.update(existing.windowId, { focused: true });
+      }
+      return { ok: true, tabId: existing.tabId, reused: true };
     }
-    return { ok: true, tabId: existing[0].id, reused: true };
+  } catch {
+    /* fall through to create */
   }
+
   const tab = await chrome.tabs.create({ url, active: true });
   return { ok: true, tabId: tab.id, reused: false };
 }
@@ -232,29 +244,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.target === "offscreen") return;
 
   if (message.type === "open-mirror") {
-    (async () => {
-      try {
-        sendResponse(await openMirrorTab());
-      } catch (err) {
-        sendResponse({
-          ok: false,
-          error: err?.message || String(err),
-        });
-      }
-    })();
-    return true;
+    // Fire-and-forget: do not return true / sendResponse.
+    // Offscreen also listens on onMessage; keeping the port open races and
+    // surfaces "The message port closed before a response was received"
+    // at the content-script sendMessage call site.
+    openMirrorTab().catch(console.error);
+    return false;
   }
 
   if (message.type === "set-badge") {
-    (async () => {
-      try {
-        await setActionBadge(message.count);
-        sendResponse({ ok: true });
-      } catch (err) {
-        sendResponse({ ok: false, error: err?.message || String(err) });
-      }
-    })();
-    return true;
+    setActionBadge(message.count).catch(console.error);
+    return false;
   }
 
   if (message.type === "fetch-binary") {

@@ -23,15 +23,23 @@
   }
 
   function openMirrorTab() {
-    chrome.runtime.sendMessage({ type: "open-mirror" }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.warn("[claudisk] open-mirror:", chrome.runtime.lastError.message);
-        return;
+    // No response expected (SW opens the tab as a side effect). Awaiting a
+    // reply races with the offscreen onMessage listener and throws at this line.
+    if (!chrome.runtime?.id) return;
+    try {
+      const sent = chrome.runtime.sendMessage({ type: "open-mirror" });
+      if (sent && typeof sent.then === "function") {
+        sent.catch((err) => {
+          const msg = err?.message || String(err);
+          // Expected when another listener (offscreen) closes the port first;
+          // the SW still handles the message and opens the tab.
+          if (/port closed|receiving end does not exist/i.test(msg)) return;
+          console.warn("[claudisk] open-mirror:", msg);
+        });
       }
-      if (!response?.ok) {
-        console.warn("[claudisk] open-mirror failed:", response?.error);
-      }
-    });
+    } catch (err) {
+      console.warn("[claudisk] open-mirror:", err?.message || err);
+    }
   }
 
   function formatAgo(iso) {
@@ -90,9 +98,17 @@
   }
 
   function pushBadgeCount(count) {
-    chrome.runtime.sendMessage({ type: "set-badge", count }, () => {
-      void chrome.runtime.lastError;
-    });
+    if (!chrome.runtime?.id) return;
+    try {
+      const sent = chrome.runtime.sendMessage({ type: "set-badge", count });
+      if (sent && typeof sent.then === "function") {
+        sent.catch(() => {
+          /* offscreen/SW race or invalidated context */
+        });
+      }
+    } catch {
+      /* extension context invalidated */
+    }
   }
 
   /**
