@@ -101,6 +101,95 @@ export function buildArchiveStats(index, syncHistory = []) {
   const chatTotal = Object.keys(chats).length;
   const noProjectChats = byProject.get("no-project")?.chats || 0;
 
+  /** @type {Record<string, number>} */
+  const byModel = {};
+  let starred = 0;
+  let stale90 = 0;
+  let withTitle = 0;
+  let titleChars = 0;
+  let knownModels = 0;
+  /** @type {{ titolo: string, progetto: string, days: number }[]} */
+  const oldest = [];
+  /** @type {{ titolo: string, progetto: string, messaggi: number }[]} */
+  const byMessages = [];
+
+  /** @type {Map<string, number>} */
+  const filesByChat = new Map();
+  for (const f of Object.values(files)) {
+    const cu = f?.chat_uuid;
+    if (cu) filesByChat.set(cu, (filesByChat.get(cu) || 0) + 1);
+  }
+  for (const a of Object.values(attachments)) {
+    const cu = a?.chat_uuid;
+    if (cu) filesByChat.set(cu, (filesByChat.get(cu) || 0) + 1);
+  }
+
+  for (const c of Object.values(chats)) {
+    if (c?.isStarred || c?.is_starred) starred += 1;
+    const rawModel = String(c?.model || "").trim();
+    if (rawModel && !/^unknown$/i.test(rawModel)) {
+      knownModels += 1;
+      byModel[rawModel] = (byModel[rawModel] || 0) + 1;
+    }
+    const title = String(c?.titolo || c?.name || "").trim();
+    if (title) {
+      withTitle += 1;
+      titleChars += title.length;
+    }
+    const pid = c?.project_uuid || "no-project";
+    const progetto = projects[pid]?.nome || pid;
+    const titolo = title || String(c?.uuid || "").slice(0, 8) || "?";
+    const messaggi = Number(c?.messaggi) || 0;
+    byMessages.push({ titolo, progetto, messaggi });
+
+    const ts = c?.visto_il ? Date.parse(c.visto_il) : NaN;
+    if (Number.isFinite(ts)) {
+      const days = Math.floor((now - ts) / day);
+      if (days > 90) stale90 += 1;
+      oldest.push({ titolo, progetto, days });
+    }
+  }
+
+  oldest.sort((a, b) => b.days - a.days);
+  byMessages.sort((a, b) => b.messaggi - a.messaggi || a.titolo.localeCompare(b.titolo));
+
+  /** @type {{ titolo: string, progetto: string, files: number }[]} */
+  const byFiles = [];
+  for (const [uuid, n] of filesByChat) {
+    const c = chats[uuid];
+    if (!c) continue;
+    const pid = c?.project_uuid || "no-project";
+    byFiles.push({
+      titolo: String(c?.titolo || uuid.slice(0, 8)),
+      progetto: projects[pid]?.nome || pid,
+      files: n,
+    });
+  }
+  byFiles.sort((a, b) => b.files - a.files || a.titolo.localeCompare(b.titolo));
+
+  const models = Object.entries(byModel)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+
+  const topShare = chatTotal && projectRows[0] ? projectRows[0].chats / chatTotal : 0;
+  const activeProjects = projectRows.filter((p) => p.id !== "no-project" && p.chats > 0).length;
+  const avgChats =
+    activeProjects > 0
+      ? chatTotal / Math.max(activeProjects, 1)
+      : chatTotal;
+
+  const syncOk = sync.filter((s) => s.ok).length;
+  const syncFail = sync.filter((s) => !s.ok).length;
+  const avgDuration =
+    sync.length > 0
+      ? Math.round(sync.reduce((a, s) => a + s.durationMs, 0) / sync.length)
+      : 0;
+  const avgNew =
+    sync.length > 0
+      ? sync.reduce((a, s) => a + s.chatsNew, 0) / sync.length
+      : 0;
+
   return {
     totals: {
       projects: Object.keys(projects).length,
@@ -110,6 +199,13 @@ export function buildArchiveStats(index, syncHistory = []) {
       attachments: Object.keys(attachments).length,
       noProjectChats,
       noProjectShare: chatTotal ? noProjectChats / chatTotal : 0,
+      starred,
+      stale90,
+      avgTitleLen: withTitle ? Math.round(titleChars / withTitle) : 0,
+      topShare,
+      avgChatsPerProject: Math.round(avgChats * 10) / 10,
+      activeProjects,
+      knownModels,
     },
     freshness: {
       d7: fresh7,
@@ -123,8 +219,22 @@ export function buildArchiveStats(index, syncHistory = []) {
       .sort((a, b) => b.docs - a.docs || b.chats - a.chats)
       .filter((p) => p.docs > 0)
       .slice(0, 10),
+    projectsByFiles: [...projectRows]
+      .sort((a, b) => b.files - a.files || b.chats - a.chats)
+      .filter((p) => p.files > 0)
+      .slice(0, 10),
     activityByMonth: recentMonths,
     sync,
+    models,
+    oldest: oldest.slice(0, 10),
+    byMessages: byMessages.filter((c) => c.messaggi > 0).slice(0, 10),
+    byFiles: byFiles.slice(0, 10),
+    syncHealth: {
+      ok: syncOk,
+      fail: syncFail,
+      avgDurationMs: avgDuration,
+      avgNew: Math.round(avgNew * 10) / 10,
+    },
   };
 }
 
@@ -306,7 +416,104 @@ export function renderInsights(rootEl, stats, meta = {}) {
     `<span><i class="lg kind-fail"></i> ${escapeHtml(tx("stats.legend.error") || tr("error", "errore"))}</span>` +
     `</div>` +
     `</section>` +
+    `<section class="insight-card">` +
+    `<h3>${escapeHtml(tx("stats.concentration") || tr("Concentration", "Concentrazione"))}</h3>` +
+    `<p class="insight-note">${escapeHtml(
+      tr(
+        `Top project holds ${pct(totals.topShare || 0)} of chats · avg ${totals.avgChatsPerProject ?? 0} chats/project · ${totals.starred || 0} starred · ${totals.stale90 || 0} idle >90d`,
+        `Il progetto top ha il ${pct(totals.topShare || 0)} delle chat · media ${totals.avgChatsPerProject ?? 0} chat/progetto · ${totals.starred || 0} starred · ${totals.stale90 || 0} ferme >90g`,
+      ),
+    )}</p>` +
+    (stats.syncHealth
+      ? `<p class="muted tight">${escapeHtml(
+          tr(
+            `Recent syncs: ${stats.syncHealth.ok} ok / ${stats.syncHealth.fail} fail · avg ${Math.round((stats.syncHealth.avgDurationMs || 0) / 1000)}s · +${stats.syncHealth.avgNew} new/run`,
+            `Sync recenti: ${stats.syncHealth.ok} ok / ${stats.syncHealth.fail} fail · media ${Math.round((stats.syncHealth.avgDurationMs || 0) / 1000)}s · +${stats.syncHealth.avgNew} nuove/run`,
+          ),
+        )}</p>`
+      : "") +
+    `</section>` +
+    `<section class="insight-card">` +
+    `<h3>${escapeHtml(tx("stats.models") || tr("Models seen", "Modelli visti"))}</h3>` +
+    `<div class="bar-chart">${
+      stats.models?.length
+        ? barRows(
+            stats.models,
+            (m) => m.count,
+            Math.max(1, ...stats.models.map((m) => m.count)),
+            (m) => m.name,
+          )
+        : `<p class="muted">${escapeHtml(
+            tr(
+              "Model is stored on the next sync (Update / Full sync). Older index entries have no model field yet.",
+              "Il modello viene salvato al prossimo sync (Aggiorna / Sync completo). Le voci più vecchie non ce l’hanno ancora.",
+            ),
+          )}</p>`
+    }</div>` +
+    `</section>` +
+    `<section class="insight-card">` +
+    `<h3>${escapeHtml(tx("stats.byMessages") || tr("Most messages", "Più messaggi"))}</h3>` +
+    rankList(
+      stats.byMessages,
+      (o) => `${o.messaggi}`,
+      tr("No message counts yet", "Ancora nessun conteggio messaggi"),
+      tx,
+      tr,
+    ) +
+    `</section>` +
+    `<section class="insight-card">` +
+    `<h3>${escapeHtml(tx("stats.byFiles") || tr("Most files attached", "Più file allegati"))}</h3>` +
+    rankList(
+      stats.byFiles,
+      (o) => `${o.files}`,
+      tr("No chat file links yet", "Ancora nessun file collegato alle chat"),
+      tx,
+      tr,
+    ) +
+    `</section>` +
+    `<section class="insight-card">` +
+    `<h3>${escapeHtml(tx("stats.filesByProject") || tr("Files by project", "File per progetto"))}</h3>` +
+    `<div class="bar-chart">${
+      stats.projectsByFiles?.length
+        ? barRows(
+            stats.projectsByFiles,
+            (p) => p.files,
+            Math.max(1, ...stats.projectsByFiles.map((p) => p.files)),
+            (p) => p.nome,
+          )
+        : `<p class="muted">${escapeHtml(tx("stats.noData") || tr("No data", "Nessun dato"))}</p>`
+    }</div>` +
+    `</section>` +
+    `<section class="insight-card insight-wide">` +
+    `<h3>${escapeHtml(tx("stats.oldest") || tr("Longest idle chats", "Chat più ferme"))}</h3>` +
+    rankList(
+      stats.oldest,
+      (o) => `${o.days}d`,
+      tx("stats.noData") || tr("No data", "Nessun dato"),
+      tx,
+      tr,
+    ) +
+    `</section>` +
     `</div>`;
+}
+
+function rankList(rows, rightFn, empty, tx, tr) {
+  if (!rows?.length) {
+    return `<ul class="oldest-list"><li class="muted">${escapeHtml(
+      typeof empty === "string" ? empty : tx("stats.noData") || tr("No data", "Nessun dato"),
+    )}</li></ul>`;
+  }
+  return (
+    `<ul class="oldest-list">` +
+    rows
+      .map(
+        (o) =>
+          `<li><strong title="${escapeHtml(o.titolo)}">${escapeHtml(o.titolo)}</strong>` +
+          `<span class="muted">${escapeHtml(o.progetto)} · ${escapeHtml(rightFn(o))}</span></li>`,
+      )
+      .join("") +
+    `</ul>`
+  );
 }
 
 function escapeHtml(s) {

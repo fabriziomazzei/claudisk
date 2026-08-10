@@ -20,6 +20,7 @@ import { gap, throwIfAborted } from "./api.js";
  *   chatUuid: string,
  *   force?: boolean,
  *   stubOnly?: boolean,
+ *   maxAttachmentBytes?: number,
  *   index: any,
  *   signal?: AbortSignal,
  *   onLog?: (s: string) => void,
@@ -33,6 +34,7 @@ export async function captureMessageAttachments(conversation, branch, opts) {
     chatUuid,
     force = false,
     stubOnly = false,
+    maxAttachmentBytes = 0,
     index,
     signal,
     onLog = () => {},
@@ -52,6 +54,7 @@ export async function captureMessageAttachments(conversation, branch, opts) {
     attachments_written: 0,
     attachments_skipped: 0,
     attachments_stubbed: 0,
+    attachments_skipped_size: 0,
     bytes_written: 0,
     errors: /** @type {{ kind: string, id: string, title: string, message: string }[]} */ ([]),
   };
@@ -140,9 +143,34 @@ export async function captureMessageAttachments(conversation, branch, opts) {
       const href = `../attachments/${chatUuid}/${fileName}`;
       const percorso = `${relativePath}${fileName}`;
 
+      const declaredSize = Number(
+        raw.size ?? raw.file_size ?? raw.size_bytes ?? raw.bytes ?? NaN,
+      );
+      if (
+        maxAttachmentBytes > 0 &&
+        Number.isFinite(declaredSize) &&
+        declaredSize > maxAttachmentBytes
+      ) {
+        stats.attachments_skipped_size += 1;
+        onLog(
+          `Allegato saltato (oltre ${Math.round(maxAttachmentBytes / (1024 * 1024))} MB): ${displayName}`,
+        );
+        continue;
+      }
+
       if (isTxtInline) {
         // Contenuto già in JSON: non è un download binario.
         const text = String(raw.extracted_content);
+        if (
+          maxAttachmentBytes > 0 &&
+          new TextEncoder().encode(text).length > maxAttachmentBytes
+        ) {
+          stats.attachments_skipped_size += 1;
+          onLog(
+            `Allegato saltato (oltre ${Math.round(maxAttachmentBytes / (1024 * 1024))} MB): ${displayName}`,
+          );
+          continue;
+        }
         const dir = await ensureAttDir();
         await writeTextFile(dir, fileName, text);
         stats.attachments_written += 1;
@@ -164,6 +192,13 @@ export async function captureMessageAttachments(conversation, branch, opts) {
         try {
           await gap(signal);
           const buffer = await fetchBinaryFromCandidates(urls, { signal });
+          if (maxAttachmentBytes > 0 && buffer.byteLength > maxAttachmentBytes) {
+            stats.attachments_skipped_size += 1;
+            onLog(
+              `Allegato saltato (oltre ${Math.round(maxAttachmentBytes / (1024 * 1024))} MB): ${displayName}`,
+            );
+            continue;
+          }
           const dir = await ensureAttDir();
           await writeBinaryFile(dir, fileName, buffer);
           stats.attachments_written += 1;

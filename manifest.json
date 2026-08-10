@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "__MSG_extName__",
   "short_name": "ClauDisk",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
   "author": "Fabrizio Mazzei",
@@ -26,7 +26,7 @@
     "service_worker": "src/background/sw.js",
     "type": "module"
   },
-  "permissions": ["alarms", "storage", "offscreen", "cookies"],
+  "permissions": ["alarms", "storage", "offscreen", "cookies", "notifications"],
   "host_permissions": [
     "https://claude.ai/*",
     "https://*.claudeusercontent.com/*"

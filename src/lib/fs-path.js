@@ -261,6 +261,76 @@ export async function emptyDeletedFolder(root) {
 }
 
 /**
+ * Remove files under `_deleted/` older than `days` (by lastModified).
+ * @param {FileSystemDirectoryHandle} root
+ * @param {number} days 0 = no-op
+ * @returns {Promise<{ removed: number, bytes: number }>}
+ */
+export async function purgeDeletedOlderThan(root, days) {
+  const n = Number(days);
+  if (!Number.isFinite(n) || n <= 0) return { removed: 0, bytes: 0 };
+  const cutoff = Date.now() - n * 24 * 60 * 60 * 1000;
+  let removed = 0;
+  let bytes = 0;
+
+  /** @type {FileSystemDirectoryHandle} */
+  let deletedRoot;
+  try {
+    deletedRoot = await root.getDirectoryHandle("_deleted");
+  } catch (err) {
+    if (err?.name === "NotFoundError") return { removed: 0, bytes: 0 };
+    throw err;
+  }
+
+  /**
+   * @param {FileSystemDirectoryHandle} dir
+   * @param {string[]} pathParts
+   */
+  async function walk(dir, pathParts) {
+    /** @type {{ name: string, handle: FileSystemHandle }[]} */
+    const entries = [];
+    for await (const [name, handle] of dir.entries()) {
+      entries.push({ name, handle });
+    }
+    for (const { name, handle } of entries) {
+      if (handle.kind === "directory") {
+        await walk(/** @type {FileSystemDirectoryHandle} */ (handle), [
+          ...pathParts,
+          name,
+        ]);
+        // Best-effort: drop empty dirs after purge
+        try {
+          let empty = true;
+          for await (const _ of /** @type {FileSystemDirectoryHandle} */ (
+            handle
+          ).entries()) {
+            empty = false;
+            break;
+          }
+          if (empty) await dir.removeEntry(name);
+        } catch {
+          /* ignore */
+        }
+        continue;
+      }
+      try {
+        const file = await /** @type {FileSystemFileHandle} */ (handle).getFile();
+        if (file.lastModified < cutoff) {
+          bytes += file.size;
+          await dir.removeEntry(name);
+          removed += 1;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  await walk(deletedRoot, []);
+  return { removed, bytes };
+}
+
+/**
  * @param {FileSystemDirectoryHandle} root
  */
 export async function measureDeletedStats(root) {

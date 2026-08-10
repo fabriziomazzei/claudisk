@@ -18,6 +18,7 @@ ClauDisk is a browser extension that copies **your** Claude.ai data into a **fol
 | `https://claude.ai/*` | List/fetch your projects, chats, docs, files, memory while you are logged in |
 | `https://*.claudeusercontent.com/*` | Download attachments / binaries referenced by Claude |
 | `storage` | Settings, sync status, onboarding flag, folder handle metadata (local only) |
+| `notifications` | Optional desktop toast when a sync finishes (off by default) |
 | `cookies` | Read org/session context required by claude.ai APIs in the page |
 | `alarms` | Periodic health probe for the local folder (Manifest V3 background limits) |
 | `offscreen` | Keep a short-lived document that can write `_health.json` when the service worker sleeps |

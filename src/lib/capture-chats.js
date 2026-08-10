@@ -43,6 +43,7 @@ function chatPath(folder, title, uuid) {
  *   onlyChatUuids?: string[],
  *   captureArtifacts?: boolean,
  *   captureAttachments?: boolean,
+ *   maxAttachmentBytes?: number,
  *   writeTags?: boolean,
  *   writeRelated?: boolean,
  *   onLog?: (s: string) => void,
@@ -57,6 +58,7 @@ export async function captureConversations(root, index, orgId, options = {}) {
     onlyChatUuids = null,
     captureArtifacts = true,
     captureAttachments = false,
+    maxAttachmentBytes = 0,
     writeTags = true,
     writeRelated = true,
     onLog = () => {},
@@ -95,6 +97,7 @@ export async function captureConversations(root, index, orgId, options = {}) {
       attachments_written: 0,
       attachments_skipped: 0,
       attachments_stubbed: 0,
+      attachments_skipped_size: 0,
       attachments_bytes: 0,
       listedUuids: [],
       errors: [],
@@ -134,6 +137,7 @@ export async function captureConversations(root, index, orgId, options = {}) {
     attachments_written: 0,
     attachments_skipped: 0,
     attachments_stubbed: 0,
+    attachments_skipped_size: 0,
     attachments_bytes: 0,
     errors: /** @type {{ kind: string, id: string, title: string, message: string }[]} */ ([]),
   };
@@ -300,6 +304,7 @@ export async function captureConversations(root, index, orgId, options = {}) {
         chatUuid: uuid,
         force,
         stubOnly: !captureAttachments,
+        maxAttachmentBytes,
         index,
         signal,
         onLog: log,
@@ -307,6 +312,9 @@ export async function captureConversations(root, index, orgId, options = {}) {
       stats.attachments_written += attResult.stats.attachments_written;
       stats.attachments_skipped += attResult.stats.attachments_skipped;
       stats.attachments_stubbed += attResult.stats.attachments_stubbed;
+      stats.attachments_skipped_size =
+        (stats.attachments_skipped_size || 0) +
+        (attResult.stats.attachments_skipped_size || 0);
       stats.attachments_bytes += attResult.stats.bytes_written;
       if (attResult.stats.errors?.length) {
         stats.errors.push(...attResult.stats.errors);
@@ -364,6 +372,8 @@ export async function captureConversations(root, index, orgId, options = {}) {
         tipo: "chat",
         titolo: fullTitle || "",
         messaggi,
+        model: full.model || item.model || null,
+        isStarred: Boolean(full.is_starred ?? item.is_starred),
       };
 
       const shownTitle = fullTitle || displayTitle;
@@ -401,7 +411,11 @@ export async function captureConversations(root, index, orgId, options = {}) {
       `rinominate ${stats.conversations_renamed}, spostate ${stats.conversations_moved}, ` +
       `artefatti ${stats.artifacts_written}, ` +
       `allegati scritti ${stats.attachments_written} (${(stats.attachments_bytes / (1024 * 1024)).toFixed(2)} MB), ` +
-      `allegati riferiti ${stats.attachments_stubbed}, errori ${stats.errors.length}.`,
+      `allegati riferiti ${stats.attachments_stubbed}` +
+      (stats.attachments_skipped_size
+        ? `, allegati saltati per dimensione ${stats.attachments_skipped_size}`
+        : "") +
+      `, errori ${stats.errors.length}.`,
     );
 
   return { ...stats, listedUuids };

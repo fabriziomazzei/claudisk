@@ -2,6 +2,29 @@
 
 All notable changes to ClauDisk are documented here.
 
+## [1.2.0] - 2026-08-10
+
+### Added
+- Settings: desktop notification when a sync finishes
+- Settings: auto-purge `_deleted/` after N days (default 30)
+- Settings: skip message attachments larger than N MB (default 25)
+- Settings pages: What's new and About
+- Clearer “Default dry-run for Update” label
+
+### Changed
+- Version badge / packaging to 1.2.0
+- Home tagline: free, always current, across every project
+
+## [1.1.0] - 2026-08-09
+
+### Added
+- Settings full page (Vault / Capture / Sync / App / History)
+- Statistics full page with rankings (idle, messages, files)
+- Model stored into the chat index on sync
+
+### Fixed
+- Concentration copy; scrollbar layout shift on Statistics
+
 ## [1.0.0] - 2026-08-10
 
 ### Added

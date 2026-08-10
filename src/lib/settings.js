@@ -1,10 +1,4 @@
 /**
- * Impostazioni mirror (solo chrome.storage.local).
- */
-
-export const SETTINGS_KEY = "mirrorSettings";
-
-/**
  * @typedef {{
  *   requestGapMs: number,
  *   requestTimeoutMs: number,
@@ -18,10 +12,15 @@ export const SETTINGS_KEY = "mirrorSettings";
  *   confirmBeforeWrite: boolean,
  *   writeTags: boolean,
  *   writeRelated: boolean,
+ *   notifyOnSyncDone: boolean,
+ *   deletedRetentionDays: number,
+ *   maxAttachmentMb: number,
  *   locale: "en" | "it",
  *   onboardingDone: boolean,
  * }} MirrorSettings
  */
+
+export const SETTINGS_KEY = "mirrorSettings";
 
 /** @type {MirrorSettings} */
 export const DEFAULT_SETTINGS = {
@@ -37,6 +36,11 @@ export const DEFAULT_SETTINGS = {
   confirmBeforeWrite: true,
   writeTags: true,
   writeRelated: true,
+  notifyOnSyncDone: false,
+  /** Days to keep soft-deleted files under `_deleted/` before auto-purge. 0 = never. */
+  deletedRetentionDays: 30,
+  /** Skip downloading attachments larger than this (MB). 0 = no limit. */
+  maxAttachmentMb: 25,
   locale: "en",
   onboardingDone: false,
 };
@@ -64,6 +68,9 @@ export async function saveSettings(patch) {
   next.confirmBeforeWrite = Boolean(next.confirmBeforeWrite);
   next.writeTags = Boolean(next.writeTags);
   next.writeRelated = Boolean(next.writeRelated);
+  next.notifyOnSyncDone = Boolean(next.notifyOnSyncDone);
+  next.deletedRetentionDays = clamp(Number(next.deletedRetentionDays), 0, 365, 30);
+  next.maxAttachmentMb = clamp(Number(next.maxAttachmentMb), 0, 500, 25);
   next.locale = next.locale === "it" ? "it" : "en";
   next.onboardingDone = Boolean(next.onboardingDone);
   await chrome.storage.local.set({ [SETTINGS_KEY]: next });
@@ -72,5 +79,5 @@ export async function saveSettings(patch) {
 
 function clamp(n, min, max, fallback) {
   if (!Number.isFinite(n)) return fallback;
-  return Math.max(min, Math.min(max, n));
+  return Math.max(min, Math.min(max, Math.round(n)));
 }

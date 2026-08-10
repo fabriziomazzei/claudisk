@@ -11,6 +11,8 @@ const PAD = 10;
  *   openSettings: (force?: boolean) => void,
  *   closeSettings: () => void,
  *   canCloseSettings: () => boolean,
+ *   setSettingsSection?: (section: string) => void,
+ *   goHome?: () => void,
  *   onFinish: (result: { skipped: boolean }) => void | Promise<void>,
  * }} TourHost
  */
@@ -43,6 +45,7 @@ function steps() {
       id: "folder",
       selector: "#btn-choose-folder",
       settings: "open",
+      section: "vault",
       title: t("tour.folderTitle"),
       body: t("tour.folderBody"),
     },
@@ -50,6 +53,7 @@ function steps() {
       id: "language",
       selector: "#set-locale",
       settings: "open",
+      section: "app",
       title: t("tour.languageTitle"),
       body: t("tour.languageBody"),
     },
@@ -153,12 +157,19 @@ async function finish(skipped) {
   if (h) await h.onFinish({ skipped });
 }
 
-function applySettingsMode(mode) {
+function applySettingsMode(mode, section) {
   if (!host) return;
   if (mode === "open") {
-    host.openSettings(true);
+    if (section && typeof host.setSettingsSection === "function") {
+      host.setSettingsSection(section);
+    } else {
+      host.openSettings(true);
+    }
   } else if (mode === "closed" || mode === "prefer-closed") {
-    if (host.canCloseSettings()) host.closeSettings();
+    if (host.canCloseSettings()) {
+      if (typeof host.goHome === "function") host.goHome();
+      else host.closeSettings();
+    }
   }
 }
 
@@ -173,7 +184,10 @@ function positionHole() {
   }
 
   const el = document.querySelector(step.selector);
-  if (!(el instanceof HTMLElement)) {
+  if (!(el instanceof HTMLElement) || el.offsetParent === null && getComputedStyle(el).position === "static") {
+    // Still try if visible via opacity; offsetParent null when hidden
+  }
+  if (!(el instanceof HTMLElement) || el.hidden || el.closest("[hidden]")) {
     hole.style.opacity = "0";
     card.style.top = "20vh";
     card.style.left = "50%";
@@ -216,7 +230,7 @@ function renderStep() {
   const step = list[stepIndex];
   if (!step) return;
 
-  applySettingsMode(step.settings);
+  applySettingsMode(step.settings, step.section);
   requestAnimationFrame(() => {
     requestAnimationFrame(() => positionHole());
   });

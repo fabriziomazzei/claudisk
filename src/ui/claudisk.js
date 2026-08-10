@@ -15,6 +15,7 @@ import { planCapture } from "../lib/sync-plan.js";
 import { verifyVault } from "../lib/vault-verify.js";
 import { bumpMirrorSyncFailure, MIRROR_SYNC_KEY } from "../lib/mirror-sync.js";
 import { loadSettings, saveSettings } from "../lib/settings.js";
+import { renderWhatsNew } from "./whats-new.js";
 import { measureDiskStats, formatBytes } from "../lib/disk-stats.js";
 import { loadSyncHistory, pushSyncHistory } from "../lib/sync-history.js";
 import { writeMirrorSetup } from "../lib/setup-store.js";
@@ -40,25 +41,25 @@ const statDisk = document.getElementById("stat-disk");
 const btnUpdate = document.getElementById("btn-update");
 const btnFullSync = document.getElementById("btn-full-sync");
 const btnStats = document.getElementById("btn-stats");
-const btnStatsClose = document.getElementById("btn-stats-close");
-const statsDialog = document.getElementById("stats-dialog");
-const btnHistory = document.getElementById("btn-history");
-const btnHistoryClose = document.getElementById("btn-history-close");
-const historyDialog = document.getElementById("history-dialog");
+const btnStatsRefresh = document.getElementById("btn-stats-refresh");
+const btnHome = document.getElementById("btn-home");
+const btnSetupGo = document.getElementById("btn-setup-go");
 const btnVerify = document.getElementById("btn-verify");
 const btnReconfirm = document.getElementById("btn-reconfirm");
 const btnChooseFolder = document.getElementById("btn-choose-folder");
 const btnPause = document.getElementById("btn-pause");
 const btnAbort = document.getElementById("btn-abort");
 const btnSettings = document.getElementById("btn-settings");
-const btnSettingsClose = document.getElementById("btn-settings-close");
 const btnCopyLog = document.getElementById("btn-copy-log");
 const btnRetryErrors = document.getElementById("btn-retry-errors");
 const btnPlanConfirm = document.getElementById("btn-plan-confirm");
 const btnPlanCancel = document.getElementById("btn-plan-cancel");
 const btnVerifyHide = document.getElementById("btn-verify-hide");
 
-const settingsPanel = document.getElementById("settings-panel");
+const viewHome = document.getElementById("view-home");
+const viewSettings = document.getElementById("view-settings");
+const viewStats = document.getElementById("view-stats");
+const settingsSaveBar = document.getElementById("settings-save-bar");
 const setFolderStatus = document.getElementById("set-folder-status");
 const setFolderFeedback = document.getElementById("set-folder-feedback");
 
@@ -79,6 +80,8 @@ const summaryPanel = document.getElementById("summary-panel");
 const summaryBody = document.getElementById("summary-body");
 const historyList = document.getElementById("history-list");
 const historyEmpty = document.getElementById("history-empty");
+const settingsForm = document.getElementById("settings-form");
+const settingsPanel = viewSettings;
 const verifyPanel = document.getElementById("verify-panel");
 const verifyBody = document.getElementById("verify-body");
 const errorsPanel = document.getElementById("errors-panel");
@@ -86,17 +89,19 @@ const errorsList = document.getElementById("errors-list");
 const logEl = document.getElementById("log");
 const toastEl = document.getElementById("toast");
 
-const settingsForm = document.getElementById("settings-form");
 const btnReplayTour = document.getElementById("btn-replay-tour");
 const setArtifacts = document.getElementById("set-artifacts");
 const setAttachments = document.getElementById("set-attachments");
 const setProjectFiles = document.getElementById("set-project-files");
 const setConfirmWrite = document.getElementById("set-confirm-write");
+const setNotifySync = document.getElementById("set-notify-sync");
 const setWriteTags = document.getElementById("set-write-tags");
 const setWriteRelated = document.getElementById("set-write-related");
 const setAutostart = document.getElementById("set-autostart");
 const setCloseTab = document.getElementById("set-close-tab");
 const setLocaleEl = document.getElementById("set-locale");
+const setDeletedRetention = document.getElementById("set-deleted-retention");
+const setMaxAttachment = document.getElementById("set-max-attachment");
 const deletedStatsEl = document.getElementById("deleted-stats");
 const btnEmptyDeleted = document.getElementById("btn-empty-deleted");
 
@@ -112,9 +117,11 @@ let lastErrors = [];
 let lastDiskBytes = null;
 /** @type {boolean} */
 let setupReady = false;
-/** @type {boolean} */
-let settingsOpen = false;
-/** @type {{ force: boolean } | null} */
+/** @type {"home" | "settings" | "stats"} */
+let currentView = "home";
+/** @type {string} */
+let currentSettingsSection = "vault";
+/** @type {{ force?: boolean } | null} */
 let pendingPlanOpts = null;
 /** @type {boolean} */
 let planning = false;
@@ -373,37 +380,124 @@ function showToast(message, kind = "ok") {
   }
 }
 
+/**
+ * Optional desktop notification after a successful sync (Settings → Sync).
+ * @param {string} message
+ */
+async function notifySyncDone(message) {
+  if (!settings.notifyOnSyncDone) return;
+  if (!chrome?.notifications?.create) return;
+  try {
+    await chrome.notifications.create(`claudisk-sync-${Date.now()}`, {
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("icons/icon-128.png"),
+      title: "ClauDisk",
+      message: String(message || "Sync finished."),
+      priority: 0,
+    });
+  } catch {
+    /* permission or API unavailable */
+  }
+}
+
 function setFolderFeedbackEl(message, kind = "") {
   setFolderFeedback.textContent = message;
   if (kind) setFolderFeedback.dataset.kind = kind;
   else delete setFolderFeedback.dataset.kind;
 }
 
-function openSettings(force = false) {
-  settingsOpen = true;
-  document.body.dataset.settings = "open";
-  settingsPanel.hidden = false;
-  btnSettings.setAttribute("aria-expanded", "true");
-  fillSettingsForm();
-  if (force) {
-    settingsPanel.scrollTop = 0;
+/**
+ * @param {"home" | "settings" | "stats"} view
+ * @param {{ section?: string, force?: boolean }} [opts]
+ */
+function setView(view, opts = {}) {
+  if (view === "home" && !setupReady && !opts.force) {
+    view = "settings";
+    opts = { ...opts, section: opts.section || "vault" };
   }
+  if (view === "stats" && !setupReady) {
+    view = "settings";
+    opts = { section: "vault" };
+  }
+
+  currentView = view;
+  document.body.dataset.view = view;
+
+  viewHome.hidden = view !== "home";
+  viewSettings.hidden = view !== "settings";
+  viewStats.hidden = view !== "stats";
+
+  btnSettings?.setAttribute("aria-current", view === "settings" ? "page" : "false");
+  btnStats?.setAttribute("aria-current", view === "stats" ? "page" : "false");
+
+  if (view === "settings") {
+    setSettingsSection(opts.section || currentSettingsSection || "vault");
+    fillSettingsForm();
+  }
+  if (view === "stats") {
+    if (insightsBody) {
+      insightsBody.innerHTML = `<p class="muted">${t("insights.loading")}</p>`;
+    }
+    refreshInsights().catch(console.error);
+  }
+}
+
+/**
+ * @param {string} section
+ */
+function setSettingsSection(section) {
+  const allowed = ["vault", "capture", "sync", "app", "history"];
+  if (!allowed.includes(section)) section = "vault";
+  currentSettingsSection = section;
+  document.body.dataset.settingsSection = section;
+
+  document.querySelectorAll("[data-settings-nav]").forEach((el) => {
+    el.classList.toggle("is-active", el.getAttribute("data-settings-nav") === section);
+  });
+  document.querySelectorAll("[data-settings-pane]").forEach((el) => {
+    const on = el.getAttribute("data-settings-pane") === section;
+    el.hidden = !on;
+    el.classList.toggle("is-active", on);
+  });
+
+  if (settingsSaveBar) {
+    settingsSaveBar.hidden =
+      section === "vault" ||
+      section === "history" ||
+      section === "whatsnew" ||
+      section === "about";
+  }
+  if (section === "whatsnew") {
+    const body = document.getElementById("whats-new-body");
+    if (body) renderWhatsNew(body, settings.locale === "it" ? "it" : "en");
+  }
+  if (section === "about") {
+    const aboutVer = document.getElementById("about-version");
+    if (aboutVer) {
+      const v = chrome.runtime.getManifest().version || "";
+      aboutVer.textContent = v ? `v${v}` : "";
+    }
+  }
+  if (section === "history") {
+    refreshHistory().catch(console.error);
+  }
+}
+
+function openSettings(force = false) {
+  setView("settings", {
+    section: force || !setupReady ? "vault" : currentSettingsSection,
+    force: true,
+  });
 }
 
 function closeSettings() {
   if (isOnboardingActive()) return;
-  if (!setupReady) {
-    // In setup il pannello resta obbligatorio.
-    return;
-  }
-  settingsOpen = false;
-  document.body.dataset.settings = "closed";
-  settingsPanel.hidden = true;
-  btnSettings.setAttribute("aria-expanded", "false");
+  if (!setupReady) return;
+  setView("home");
 }
 
 function toggleSettings() {
-  if (settingsOpen && setupReady) closeSettings();
+  if (currentView === "settings" && setupReady) closeSettings();
   else openSettings();
 }
 
@@ -412,11 +506,11 @@ function applyMode(ready) {
   document.body.dataset.mode = ready ? "ready" : "setup";
   setupBanner.hidden = ready;
   if (!ready) {
-    openSettings(true);
-  } else if (!settingsOpen) {
-    document.body.dataset.settings = "closed";
-    settingsPanel.hidden = true;
-    btnSettings.setAttribute("aria-expanded", "false");
+    setView("settings", { section: "vault", force: true });
+  } else if (currentView === "settings" && document.body.dataset.view === "settings") {
+    /* stay on settings if user is configuring */
+  } else {
+    setView("home");
   }
 }
 
@@ -425,11 +519,22 @@ function fillSettingsForm() {
   setAttachments.checked = Boolean(settings.captureAttachments);
   setProjectFiles.checked = Boolean(settings.captureProjectFiles);
   setConfirmWrite.checked = settings.confirmBeforeWrite !== false;
+  if (setNotifySync) setNotifySync.checked = Boolean(settings.notifyOnSyncDone);
   setWriteTags.checked = settings.writeTags !== false;
   setWriteRelated.checked = settings.writeRelated !== false;
   setAutostart.checked = Boolean(settings.autoStartOnOpen);
   setCloseTab.checked = Boolean(settings.closeTabWhenDone);
   if (setLocaleEl) setLocaleEl.value = settings.locale === "it" ? "it" : "en";
+  if (setDeletedRetention) {
+    const d = String(settings.deletedRetentionDays ?? 30);
+    setDeletedRetention.value = ["0", "7", "14", "30", "90"].includes(d) ? d : "30";
+  }
+  if (setMaxAttachment) {
+    const m = String(settings.maxAttachmentMb ?? 25);
+    setMaxAttachment.value = ["0", "5", "10", "25", "50", "100"].includes(m)
+      ? m
+      : "25";
+  }
   refreshDeletedStats().catch(() => {});
 }
 
@@ -750,16 +855,8 @@ async function refreshInsights(index = null, diskLabel = "") {
   }
 }
 
-async function openStatsDialog() {
-  if (insightsBody) {
-    insightsBody.innerHTML = `<p class="muted">${t("insights.loading")}</p>`;
-  }
-  if (typeof statsDialog?.showModal === "function") {
-    statsDialog.showModal();
-  } else if (statsDialog) {
-    statsDialog.setAttribute("open", "");
-  }
-  await refreshInsights();
+async function openStatsPage() {
+  setView("stats");
 }
 
 async function refreshHistory() {
@@ -778,19 +875,19 @@ async function refreshHistory() {
     const right = document.createElement("span");
     const when = entry.at ? new Date(entry.at).toLocaleString() : "?";
     const kind = entry.targeted
-      ? "retry mirato"
+      ? tr("targeted retry", "retry mirato")
       : entry.force
-        ? "sync completo"
-        : "aggiornamento";
+        ? tr("full sync", "sync completo")
+        : tr("update", "aggiornamento");
     left.innerHTML = `<span class="${entry.ok ? "hist-ok" : "hist-fail"}">${
-      entry.ok ? "ok" : "errore"
+      entry.ok ? "ok" : tr("error", "errore")
     }</span> · ${escapeHtml(kind)} · ${escapeHtml(when)}`;
     const bits = [
-      `+${entry.chatsNew || 0} nuove`,
-      `${entry.chatsUpdated || 0} agg.`,
+      `+${entry.chatsNew || 0} ${tr("new", "nuove")}`,
+      `${entry.chatsUpdated || 0} ${tr("upd.", "agg.")}`,
       `${entry.docsWritten || 0} docs`,
     ];
-    if (entry.chatsRenamed) bits.push(`${entry.chatsRenamed} rin.`);
+    if (entry.chatsRenamed) bits.push(`${entry.chatsRenamed} ${tr("ren.", "rin.")}`);
     if (entry.artifacts) bits.push(`${entry.artifacts} art.`);
     if (entry.errors) bits.push(`${entry.errors} err.`);
     if (entry.durationMs) bits.push(formatDuration(entry.durationMs));
@@ -821,7 +918,7 @@ async function refreshHero() {
     if (btnVerify) btnVerify.disabled = true;
     applyMode(false);
     await syncSetupFlag(false, null);
-    if (statsDialog?.open) await refreshInsights(null);
+    if (currentView === "stats") await refreshInsights(null);
     return "none";
   }
 
@@ -851,7 +948,7 @@ async function refreshHero() {
         : `Folder: ${directoryHandle.name} (permission needed)`;
     applyMode(false);
     await syncSetupFlag(false, directoryHandle.name);
-    if (statsDialog?.open) await refreshInsights(null);
+    if (currentView === "stats") await refreshInsights(null);
     return "needs-permission";
   }
 
@@ -890,14 +987,14 @@ async function refreshHero() {
       `${projects} projects · ${chats} chats · ${docs} docs · ${diskLabel}`,
       `${projects} progetti · ${chats} chat · ${docs} docs · ${diskLabel}`,
     );
-    if (statsDialog?.open) await refreshInsights(index, diskLabel);
+    if (currentView === "stats") await refreshInsights(index, diskLabel);
   } catch (err) {
     lastDiskBytes = null;
     statDisk.textContent = tr(
       `index unreadable (${err?.message || err})`,
       `indice non leggibile (${err?.message || err})`,
     );
-    if (statsDialog?.open) await refreshInsights(null);
+    if (currentView === "stats") await refreshInsights(null);
   }
 
   setRunningUi(Boolean(activeAbort));
@@ -1226,6 +1323,7 @@ async function executeCapture(opts = {}) {
     showToast(toastMsg, result.captureFailed ? "err" : "ok");
     if (!result.captureFailed) {
       clearActionBadge().catch(() => {});
+      notifySyncDone(toastMsg).catch(() => {});
     }
 
     if (
@@ -1530,41 +1628,44 @@ btnCopyLog.addEventListener("click", async () => {
 });
 
 btnStats?.addEventListener("click", () => {
-  openStatsDialog().catch(console.error);
+  openStatsPage().catch(console.error);
 });
 
-btnStatsClose?.addEventListener("click", () => {
-  statsDialog?.close();
-});
-
-btnHistory.addEventListener("click", async () => {
-  await refreshHistory();
-  if (typeof historyDialog.showModal === "function") {
-    historyDialog.showModal();
-  } else {
-    historyDialog.setAttribute("open", "");
+btnStatsRefresh?.addEventListener("click", () => {
+  if (insightsBody) {
+    insightsBody.innerHTML = `<p class="muted">${t("insights.loading")}</p>`;
   }
+  refreshInsights().catch(console.error);
 });
 
-btnHistoryClose.addEventListener("click", () => {
-  historyDialog.close();
+btnHome?.addEventListener("click", () => {
+  if (!setupReady) {
+    setView("settings", { section: "vault", force: true });
+    return;
+  }
+  setView("home");
+});
+
+btnSetupGo?.addEventListener("click", () => {
+  setView("settings", { section: "vault", force: true });
+});
+
+document.querySelectorAll("[data-back-home]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (!setupReady) return;
+    setView("home");
+  });
+});
+
+document.querySelectorAll("[data-settings-nav]").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const section = btn.getAttribute("data-settings-nav") || "vault";
+    setSettingsSection(section);
+  });
 });
 
 btnSettings.addEventListener("click", () => {
   toggleSettings();
-});
-
-btnSettingsClose.addEventListener("click", () => {
-  if (!setupReady) {
-    setFolderFeedbackEl(
-      settings.locale === "it"
-        ? "Collega prima una cartella per usare ClauDisk."
-        : "Connect a folder first to use ClauDisk.",
-      "err",
-    );
-    return;
-  }
-  closeSettings();
 });
 
 settingsForm.addEventListener("submit", async (event) => {
@@ -1574,11 +1675,14 @@ settingsForm.addEventListener("submit", async (event) => {
     captureAttachments: setAttachments.checked,
     captureProjectFiles: setProjectFiles.checked,
     confirmBeforeWrite: setConfirmWrite.checked,
+    notifyOnSyncDone: Boolean(setNotifySync?.checked),
     writeTags: setWriteTags.checked,
     writeRelated: setWriteRelated.checked,
     autoStartOnOpen: setAutostart.checked,
     closeTabWhenDone: setCloseTab.checked,
     locale: setLocaleEl?.value === "it" ? "it" : "en",
+    deletedRetentionDays: Number(setDeletedRetention?.value ?? 30),
+    maxAttachmentMb: Number(setMaxAttachment?.value ?? 25),
   });
   fillSettingsForm();
   applyUiLocale();
@@ -1588,6 +1692,18 @@ settingsForm.addEventListener("submit", async (event) => {
   );
   showToast(
     settings.locale === "it" ? "Opzioni salvate." : "Options saved.",
+    "ok",
+  );
+});
+
+setDeletedRetention?.addEventListener("change", async () => {
+  settings = await saveSettings({
+    deletedRetentionDays: Number(setDeletedRetention.value ?? 30),
+  });
+  showToast(
+    settings.locale === "it"
+      ? "Retention _deleted/ aggiornata."
+      : "_deleted/ retention updated.",
     "ok",
   );
 });
@@ -1643,15 +1759,18 @@ btnEmptyDeleted.addEventListener("click", async () => {
 function launchTour() {
   if (isOnboardingActive()) return;
   startOnboarding({
-    openSettings,
+    openSettings: (force) => openSettings(Boolean(force)),
     closeSettings: () => {
       if (!setupReady) return;
-      settingsOpen = false;
-      document.body.dataset.settings = "closed";
-      settingsPanel.hidden = true;
-      btnSettings.setAttribute("aria-expanded", "false");
+      setView("home");
     },
     canCloseSettings: () => setupReady,
+    setSettingsSection: (section) => {
+      setView("settings", { section, force: true });
+    },
+    goHome: () => {
+      if (setupReady) setView("home");
+    },
     onFinish: async () => {
       settings = await saveSettings({ onboardingDone: true });
       applyUiLocale();

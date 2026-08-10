@@ -7,14 +7,40 @@
 /** @type {Record<Locale, Record<string, string>>} */
 export const MESSAGES = {
   en: {
-    "meta.lede": "Your Claude.ai projects, mirrored live to disk",
+    "meta.lede":
+      "Free local mirror of your Claude.ai projects - always current, across every project",
     "meta.versionTitle": "Extension version",
+    "nav.home": "Home",
+    "nav.backSync": "Sync",
     "nav.history": "History",
     "nav.stats": "Statistics",
     "nav.settings": "Settings",
+    "settings.nav.whatsnew": "What's new",
+    "settings.nav.about": "About",
+    "settings.whatsnew.title": "What's new",
+    "settings.whatsnew.lead": "Short release notes for this extension. Newest first.",
+    "settings.about.title": "About",
+    "settings.about.lead": "Product info, privacy, and credits.",
+    "settings.about.author": "Author",
+    "settings.about.website": "Website",
+    "settings.about.license": "License",
+    "settings.about.privacy": "Privacy",
+    "settings.about.libs": "Open source / runtime",
+    "settings.about.libsBody":
+      "No bundled third-party UI libraries. Chrome Extension APIs and the File System Access API.",
+    "settings.about.disclaimer":
+      "Not affiliated with Anthropic. Claude is a trademark of Anthropic PBC. Use at your own risk.",
+    "settings.retention": "Keep _deleted/ for",
+    "settings.retention.never": "Never auto-purge",
+    "settings.retentionHint":
+      "Soft-deleted files older than this are removed automatically after each sync. Default 30 days balances recovery and privacy.",
+    "settings.maxAttachment": "Skip attachments larger than",
+    "settings.maxAttachmentHint":
+      "Large binaries stay out of the vault. Applies when message attachments are enabled.",
     "setup.title": "Connect a folder",
     "setup.body":
-      "Choose the local folder where ClauDisk will write projects, chats, and indexes. Open Settings on the right and finish setup.",
+      "Choose the local folder where ClauDisk will write projects, chats, and indexes. Open Settings and finish setup.",
+    "setup.goSettings": "Open Settings",
     "stat.folder": "Folder",
     "stat.permission": "Permission",
     "stat.last": "Last update",
@@ -22,7 +48,23 @@ export const MESSAGES = {
     "insights.summary": "Archive overview",
     "insights.loading": "Loading stats…",
     "stats.title": "Archive statistics",
+    "stats.lead":
+      "A wider look at your vault: volume, projects, freshness, and recent syncs.",
     "stats.empty": "Connect a folder and run at least one sync to see statistics.",
+    "stats.concentration": "Concentration",
+    "stats.models": "Models seen",
+    "stats.oldest": "Longest idle chats",
+    "stats.byMessages": "Most messages",
+    "stats.byFiles": "Most files attached",
+    "stats.filesByProject": "Files by project",
+    "btn.refreshStats": "Refresh",
+    "settings.nav.vault": "Vault",
+    "settings.nav.capture": "Capture",
+    "settings.nav.app": "App",
+    "settings.vaultLead":
+      "Local folder for the mirror, plus housekeeping for chats removed on Claude.ai.",
+    "settings.appLead":
+      "Language, how this tab behaves when it opens, and the optional product tour.",
     "stats.kpi.projects": "Projects",
     "stats.kpi.chats": "Chats",
     "stats.kpi.docs": "Documents",
@@ -79,10 +121,14 @@ export const MESSAGES = {
     "log.aria": "Sync activity",
     "settings.title": "Settings",
     "settings.folder": "Folder",
+    "settings.folderLead":
+      "Pick the local folder ClauDisk uses as your vault. Everything stays on this machine.",
     "settings.folderHint":
       "Required. ClauDisk saves markdown, knowledge, and indexes here.",
     "settings.folderNone": "No folder connected.",
     "settings.download": "What to include",
+    "settings.downloadLead":
+      "Chats, project docs, and indexes are always mirrored. Toggle heavier optional payloads here.",
     "settings.downloadHint":
       "Chats, project docs, and indexes are always included. Toggle optional pieces here.",
     "settings.artifacts": "Artifacts generated in chats",
@@ -95,12 +141,18 @@ export const MESSAGES = {
     "settings.projectFilesHint":
       "PDFs and other files in knowledge/ (not inline text docs).",
     "settings.maintenance": "Maintenance",
+    "settings.maintenanceLead":
+      "Housekeeping for chats removed on Claude.ai. Safe deletes land in _deleted/ first.",
     "settings.deletedHint":
       "Chats deleted on Claude are moved into the _deleted/ folder.",
     "settings.sync": "Sync",
-    "settings.confirmWrite": "Show plan and ask before writing",
+    "settings.syncLead":
+      "Control the dry-run confirm step and how chat Markdown is enriched on disk.",
+    "settings.confirmWrite": "Default dry-run for Update",
     "settings.confirmWriteHint":
-      "Lists chats/projects to touch; writing starts only after Confirm.",
+      "Show the plan and ask before writing. Turn off to write immediately on Update.",
+    "settings.notifySync": "Desktop notification when sync finishes",
+    "settings.notifySyncHint": "Uses Chrome notifications. Off by default.",
     "settings.writeTags": "Heuristic tags in chat frontmatter",
     "settings.writeTagsHint":
       "project/…, starred, model/…, month. No external API.",
@@ -108,16 +160,23 @@ export const MESSAGES = {
     "settings.writeRelatedHint":
       "“Related” section + YAML field. Local heuristics only.",
     "settings.ui": "Interface",
+    "settings.uiLead":
+      "How this tab behaves when it opens, and the optional product tour.",
     "settings.language": "Language",
+    "settings.languageLead":
+      "Choose the language for this ClauDisk tab. English is the default.",
     "settings.autostart": "Start update when this tab opens",
     "settings.closeTab": "Close tab after a successful capture",
     "settings.tour": "Product tour",
     "settings.tourHint": "Replay the spotlight walkthrough of the main controls.",
+    "settings.saveHint": "Changes apply after you save.",
     "btn.replayTour": "Show tour again",
     "btn.openHistory": "Open sync history",
     "settings.history": "Sync history",
     "settings.historyHint":
       "Recent successful and failed sync runs stored on this browser.",
+    "settings.historyLead":
+      "Recent successful and failed sync runs stored in this browser (last 10).",
     "footer.by": "by",
     "footer.disclaimer":
       "Not affiliated with Anthropic. Use at your own risk. Data stays in the folder you choose.",
@@ -134,7 +193,7 @@ export const MESSAGES = {
       "This tab is your control room. ClauDisk copies your Claude.ai projects into a local folder as Markdown for Cursor and Claude Code.",
     "tour.settingsTitle": "Settings",
     "tour.settingsBody":
-      "Open Settings anytime to change language, what to download, and sync behaviour.",
+      "Open Settings anytime for a full page of options: language, downloads, sync behaviour, and history.",
     "tour.folderTitle": "Connect a folder",
     "tour.folderBody":
       "Pick (or reconfirm) the local folder where chats, docs, and indexes will be written. Nothing leaves your machine.",
@@ -143,7 +202,7 @@ export const MESSAGES = {
       "English is the default. Switch to Italian here whenever you like.",
     "tour.statsTitle": "Statistics",
     "tour.statsBody":
-      "Open Statistics anytime for chats by project, freshness, and recent syncs - without crowding the main screen.",
+      "Open Statistics for a full-page view of chats by project, freshness, and recent syncs.",
     "tour.updateTitle": "Update",
     "tour.updateBody":
       "After the folder is connected, use Update for incremental sync or Full sync to rebuild everything. You can also open ClauDisk from the button on claude.ai.",
@@ -166,14 +225,40 @@ export const MESSAGES = {
     "content.agoDay": "{n}d ago",
   },
   it: {
-    "meta.lede": "I tuoi progetti Claude.ai, specchiati live sul disco",
+    "meta.lede":
+      "Mirror locale gratuito dei tuoi progetti Claude.ai - sempre aggiornato, attraverso tutti i progetti",
     "meta.versionTitle": "Versione extension",
+    "nav.home": "Home",
+    "nav.backSync": "Sync",
     "nav.history": "Cronologia",
     "nav.stats": "Statistiche",
     "nav.settings": "Impostazioni",
+    "settings.nav.whatsnew": "Novità",
+    "settings.nav.about": "Informazioni",
+    "settings.whatsnew.title": "Novità",
+    "settings.whatsnew.lead": "Note di rilascio sintetiche. Dalla più recente.",
+    "settings.about.title": "Informazioni",
+    "settings.about.lead": "Prodotto, privacy e crediti.",
+    "settings.about.author": "Autore",
+    "settings.about.website": "Sito web",
+    "settings.about.license": "Licenza",
+    "settings.about.privacy": "Privacy",
+    "settings.about.libs": "Open source / runtime",
+    "settings.about.libsBody":
+      "Nessuna libreria UI di terze parti inclusa. Chrome Extension API e File System Access API.",
+    "settings.about.disclaimer":
+      "Non affiliato ad Anthropic. Claude è un marchio di Anthropic PBC. Uso a tuo rischio.",
+    "settings.retention": "Mantieni _deleted/ per",
+    "settings.retention.never": "Mai auto-pulizia",
+    "settings.retentionHint":
+      "I file soft-deleted più vecchi di questa soglia vengono rimossi dopo ogni sync. Default 30 giorni: recupero e privacy.",
+    "settings.maxAttachment": "Salta allegati più grandi di",
+    "settings.maxAttachmentHint":
+      "I binari grandi restano fuori dal vault. Vale se gli allegati messaggio sono attivi.",
     "setup.title": "Collega una cartella",
     "setup.body":
-      "Scegli la cartella locale dove ClauDisk scriverà progetti, chat e indici. Apri Impostazioni a destra e completa il collegamento.",
+      "Scegli la cartella locale dove ClauDisk scriverà progetti, chat e indici. Apri Impostazioni e completa il collegamento.",
+    "setup.goSettings": "Apri Impostazioni",
     "stat.folder": "Cartella",
     "stat.permission": "Permesso",
     "stat.last": "Ultimo aggiornamento",
@@ -181,8 +266,24 @@ export const MESSAGES = {
     "insights.summary": "Panoramica archivio",
     "insights.loading": "Caricamento statistiche…",
     "stats.title": "Statistiche archivio",
+    "stats.lead":
+      "Una vista ampia del vault: volume, progetti, freschezza e sync recenti.",
     "stats.empty":
       "Collega la cartella e fai almeno un sync per vedere le statistiche.",
+    "stats.concentration": "Concentrazione",
+    "stats.models": "Modelli visti",
+    "stats.oldest": "Chat più ferme",
+    "stats.byMessages": "Più messaggi",
+    "stats.byFiles": "Più file allegati",
+    "stats.filesByProject": "File per progetto",
+    "btn.refreshStats": "Aggiorna",
+    "settings.nav.vault": "Vault",
+    "settings.nav.capture": "Cattura",
+    "settings.nav.app": "App",
+    "settings.vaultLead":
+      "Cartella locale del mirror e pulizia delle chat rimosse su Claude.ai.",
+    "settings.appLead":
+      "Lingua, comportamento all’apertura della tab e tour prodotto opzionale.",
     "stats.kpi.projects": "Progetti",
     "stats.kpi.chats": "Chat",
     "stats.kpi.docs": "Documenti",
@@ -239,10 +340,14 @@ export const MESSAGES = {
     "log.aria": "Attività di sync",
     "settings.title": "Impostazioni",
     "settings.folder": "Cartella",
+    "settings.folderLead":
+      "Scegli la cartella locale usata come vault. Tutto resta su questa macchina.",
     "settings.folderHint":
       "Obbligatoria. Qui ClauDisk salva markdown, knowledge e indici.",
     "settings.folderNone": "Nessuna cartella collegata.",
     "settings.download": "Cosa includere nel download",
+    "settings.downloadLead":
+      "Chat, documenti di progetto e indici sono sempre nel mirror. Qui attivi i payload opzionali più pesanti.",
     "settings.downloadHint":
       "Chat, documenti di progetto e indici ci sono sempre. Qui scegli i pezzi opzionali.",
     "settings.artifacts": "Artefatti generati nelle chat",
@@ -255,12 +360,18 @@ export const MESSAGES = {
     "settings.projectFilesHint":
       "PDF e altri file in knowledge/ (non i documenti testo già inline).",
     "settings.maintenance": "Manutenzione",
+    "settings.maintenanceLead":
+      "Pulizia delle chat rimosse su Claude.ai. Prima finiscono in _deleted/.",
     "settings.deletedHint":
       "Le chat cancellate su Claude vengono spostate nella cartella _deleted/",
     "settings.sync": "Sync",
-    "settings.confirmWrite": "Mostra piano e chiedi conferma prima di scrivere",
+    "settings.syncLead":
+      "Controlla il dry-run di conferma e come arricchire il Markdown delle chat.",
+    "settings.confirmWrite": "Dry-run di default per Update",
     "settings.confirmWriteHint":
-      "Elenca chat/progetti da toccare; la scrittura parte solo dopo Conferma.",
+      "Mostra il piano e chiede conferma prima di scrivere. Disattiva per scrivere subito all’Update.",
+    "settings.notifySync": "Notifica desktop a fine sync",
+    "settings.notifySyncHint": "Usa le notifiche Chrome. Disattivata di default.",
     "settings.writeTags": "Tag euristici nel frontmatter delle chat",
     "settings.writeTagsHint":
       "progetto/…, starred, modello/…, mese. Nessuna API esterna.",
@@ -268,16 +379,23 @@ export const MESSAGES = {
     "settings.writeRelatedHint":
       "Sezione «Correlate» + campo YAML. Solo euristiche locali.",
     "settings.ui": "Interfaccia",
+    "settings.uiLead":
+      "Come si comporta questa tab all’apertura, e il tour prodotto opzionale.",
     "settings.language": "Lingua",
+    "settings.languageLead":
+      "Lingua di questa tab ClauDisk. L’inglese è il predefinito.",
     "settings.autostart": "Avvia aggiornamento all’apertura di questa tab",
     "settings.closeTab": "Chiudi la tab a cattura riuscita",
     "settings.tour": "Tour guidato",
     "settings.tourHint": "Rivedi il percorso a occhio di bue sui controlli principali.",
+    "settings.saveHint": "Le modifiche valgono dopo il salvataggio.",
     "btn.replayTour": "Mostra di nuovo il tour",
     "btn.openHistory": "Apri cronologia sync",
     "settings.history": "Cronologia sync",
     "settings.historyHint":
       "Sync riuscite e fallite recenti, salvate in questo browser.",
+    "settings.historyLead":
+      "Sync riuscite e fallite recenti salvate in questo browser (ultime 10).",
     "footer.by": "di",
     "footer.disclaimer":
       "Non affiliato ad Anthropic. Uso a proprio rischio. I dati restano nella cartella che scegli tu.",
@@ -294,7 +412,7 @@ export const MESSAGES = {
       "Questa tab è la console. ClauDisk copia i tuoi progetti Claude.ai in una cartella locale in Markdown, per Cursor e Claude Code.",
     "tour.settingsTitle": "Impostazioni",
     "tour.settingsBody":
-      "Apri Impostazioni quando vuoi per lingua, cosa scaricare e comportamento della sync.",
+      "Apri Impostazioni per una pagina dedicata: lingua, download, sync e cronologia.",
     "tour.folderTitle": "Collega una cartella",
     "tour.folderBody":
       "Scegli (o riconferma) la cartella locale dove verranno scritti chat, docs e indici. Niente esce dal tuo PC.",
@@ -303,7 +421,7 @@ export const MESSAGES = {
       "L’inglese è la lingua predefinita. Puoi passare all’italiano quando vuoi.",
     "tour.statsTitle": "Statistiche",
     "tour.statsBody":
-      "Apri Statistiche quando vuoi: chat per progetto, freschezza e sync recenti, senza affollare la schermata principale.",
+      "Apri Statistiche per una pagina intera: chat per progetto, freschezza e sync recenti.",
     "tour.updateTitle": "Aggiorna",
     "tour.updateBody":
       "Con la cartella collegata, usa Aggiorna per la sync incrementale o Sync completo per ricostruire tutto. Puoi aprire ClauDisk anche dal bottone su claude.ai.",

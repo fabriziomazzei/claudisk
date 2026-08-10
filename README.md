@@ -12,7 +12,7 @@
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-c45c26?style=flat-square" alt="MIT" /></a>
   <a href="./manifest.json"><img src="https://img.shields.io/badge/Chrome-MV3-4285F4?style=flat-square" alt="Manifest V3" /></a>
-  <a href="./CHANGELOG.md"><img src="https://img.shields.io/badge/version-1.0.0-1a1a18?style=flat-square" alt="1.0.0" /></a>
+  <a href="./CHANGELOG.md"><img src="https://img.shields.io/badge/version-1.2.0-1a1a18?style=flat-square" alt="1.2.0" /></a>
   <a href="https://claudisk-web.vercel.app"><img src="https://img.shields.io/badge/site-claudisk--web.vercel.app-000?style=flat-square" alt="Website" /></a>
 </p>
 
@@ -47,6 +47,20 @@ Most tools do a **one-shot export**. ClauDisk keeps a **living folder** on your 
   <img src="docs/screenshots/claudisk%20mirror%20ready.png" width="90%" alt="ClauDisk tab ready to sync" />
 </p>
 <p align="center"><em>ClauDisk tab: folder connected, permission granted, ready to update.</em></p>
+
+### Update in progress
+
+<p align="center">
+  <img src="docs/screenshots/sync-update.gif" width="90%" alt="ClauDisk update progress" />
+</p>
+<p align="center"><em>Incremental update: projects, chats, memory, indexes - live on disk.</em></p>
+
+### Chats keep joining
+
+<p align="center">
+  <img src="docs/screenshots/chats-joining.gif" width="90%" alt="New chats joining the vault" />
+</p>
+<p align="center"><em>Every new chat lands in the vault - always ready for your AI tools.</em></p>
 
 ### Dry-run before write
 
@@ -94,7 +108,7 @@ Most tools do a **one-shot export**. ClauDisk keeps a **living folder** on your 
 5. Open [claude.ai](https://claude.ai) → use the ClauDisk button, or click the toolbar icon
 6. Connect a local folder and run **Update**
 
-Optional packaging: `npm run zip` → `dist/claudisk-1.0.0.zip`
+Optional packaging: `npm run zip` → `dist/claudisk-1.2.0.zip`
 
 Site / docs: [claudisk-web.vercel.app](https://claudisk-web.vercel.app)
 
@@ -147,7 +161,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md). Please read [CODE_OF_CONDUCT.md](./COD
 - [ ] Marketing site polish on [claudisk-web.vercel.app](https://claudisk-web.vercel.app)
 - [ ] <!-- PLACEHOLDER: your next idea -->
 
-Fancy looping demos (OmniRoute-style motion) belong on the **site**, not necessarily in this README - GitHub is happier with static screenshots; the site can host lightweight Lottie / CSS / short GIF loops.
+Short GIF loops for Update / chats-joining live in `docs/screenshots/` (regenerate via `claudisk-web/scripts/record-gifs.mjs`).
 
 ---
 

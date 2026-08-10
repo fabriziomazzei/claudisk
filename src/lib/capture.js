@@ -23,6 +23,7 @@ import { writeMirrorSync } from "./mirror-sync.js";
 import { loadSettings } from "./settings.js";
 import { loadSyncMeta, saveSyncMeta } from "./sync-meta.js";
 import { createProgressBus, createPauseController } from "./progress.js";
+import { purgeDeletedOlderThan } from "./fs-path.js";
 
 /**
  * @param {FileSystemDirectoryHandle} root
@@ -122,6 +123,10 @@ export async function runFullCapture(root, options = {}) {
     onlyChatUuids,
     captureArtifacts: settings.captureArtifacts,
     captureAttachments: settings.captureAttachments,
+    maxAttachmentBytes:
+      Number(settings.maxAttachmentMb) > 0
+        ? Number(settings.maxAttachmentMb) * 1024 * 1024
+        : 0,
     writeTags: settings.writeTags !== false,
     writeRelated: settings.writeRelated !== false,
     onLog,
@@ -188,6 +193,22 @@ export async function runFullCapture(root, options = {}) {
     progress?.step("saltate");
   }
 
+  let deletedPurge = { removed: 0, bytes: 0 };
+  if (!targeted && Number(settings.deletedRetentionDays) > 0) {
+    throwIfAborted(signal);
+    await pauseGate();
+    status("Pulizia _deleted/…");
+    deletedPurge = await purgeDeletedOlderThan(
+      root,
+      settings.deletedRetentionDays,
+    );
+    if (deletedPurge.removed > 0) {
+      log(
+        `Pulizia _deleted/: rimossi ${deletedPurge.removed} file più vecchi di ${settings.deletedRetentionDays} giorni.`,
+      );
+    }
+  }
+
   throwIfAborted(signal);
   await pauseGate();
 
@@ -230,6 +251,7 @@ export async function runFullCapture(root, options = {}) {
     chats: chatStats,
     memory: memoryStats,
     deletions: deletionStats,
+    deleted_purge: deletedPurge,
   };
 
   status("Aggiorno _health.json…");
