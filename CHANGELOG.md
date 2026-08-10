@@ -17,7 +17,7 @@ All notable changes to ClauDisk are documented here.
 
 ## [1.1.0] - 2026-08-09
 
-### Added
+### Added 
 - Settings full page (Vault / Capture / Sync / App / History)
 - Statistics full page with rankings (idle, messages, files)
 - Model stored into the chat index on sync
