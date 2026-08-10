@@ -19,16 +19,47 @@
 
 > Not affiliated with Anthropic. Unofficial community tool. Use at your own risk and respect Claude’s Terms of Service.
 
-Claude keeps knowledge **inside project walls**. You brainstorm architecture in one project, draft a product brief in another, paste specs into a third - and when you open Cursor or Claude Code, none of that history is on disk. Cross-project questions (“what did we decide about auth?”) mean hunting tabs, copy-pasting, or starting over.
+<br />
 
-**ClauDisk** was built for that gap: a Chrome / Edge extension that mirrors your Claude.ai projects into a **folder you choose**. Chats, project docs, memory, artifacts, and attachments become plain Markdown and files. Every new chat keeps joining the vault. Point your AI tools at that folder and ask across projects in one go - with paths you can cite, search, and version.
+<table>
+<tr>
+<td width="50%" valign="top">
 
-**Where it helps in practice**
+### The problem
 
-- You live in Cursor or Claude Code and want Claude.ai project history as **local context**, not screenshots or manual exports
-- You juggle several Claude projects (client work, side projects, research) and need one searchable brain on disk
-- You want a **backup you own**: soft-delete, verify, statistics - without sending vault data to a ClauDisk server
-- You prefer incremental sync while you browse claude.ai, not a brittle one-shot dump that goes stale tomorrow
+Claude keeps knowledge **inside project walls**.
+
+You brainstorm architecture in one project, draft a product brief in another, paste specs into a third. Open Cursor or Claude Code and none of that history is on disk.
+
+Cross-project questions (“what did we decide about auth?”) mean hunting tabs, copy-pasting chats, or starting over. One-shot exports go stale by tomorrow.
+
+</td>
+<td width="50%" valign="top">
+
+### The solution
+
+**ClauDisk** mirrors your Claude.ai projects into a **folder you choose**.
+
+Chats, docs, memory, artifacts, and attachments become plain Markdown and files. Every new chat keeps joining the vault.
+
+Point Cursor or Claude Code at that folder and ask across projects in one go - with paths you can cite, search, and version.
+
+</td>
+</tr>
+</table>
+
+<br />
+
+### Built for
+
+| | |
+| :--- | :--- |
+| **Agent workflows** | Live in Cursor / Claude Code, keep Claude.ai history as local context - not screenshots or manual dumps |
+| **Many projects** | Client work, side projects, research - one searchable brain on disk |
+| **Ownership** | Soft-delete, verify, statistics - vault data never goes to a ClauDisk server |
+| **Always current** | Incremental sync while you browse claude.ai, not a brittle export that ages overnight |
+
+<br />
 
 <p align="center">
   <img src="docs/screenshots/sync-update.gif" width="90%" alt="ClauDisk update progress" />
@@ -40,7 +71,11 @@ Claude keeps knowledge **inside project walls**. You brainstorm architecture in 
 </p>
 <p align="center"><em>New chats keep landing in the vault - always ready for your AI tools.</em></p>
 
-**What’s new:** [CHANGELOG](./CHANGELOG.md) · in-extension Settings → What’s new
+<p align="center">
+  <a href="./CHANGELOG.md"><strong>What’s new</strong></a>
+  &nbsp;·&nbsp;
+  in-extension Settings → What’s new
+</p>
 
 ## Contents
 
