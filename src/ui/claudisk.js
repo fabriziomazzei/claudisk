@@ -158,7 +158,23 @@ logEl.addEventListener("scroll", () => {
 
 function classifyLogLine(line) {
   const s = String(line);
-  if (/errore|error|fallit|fail|HTTP\s*[45]\d\d/i.test(s)) return "error";
+
+  // Riepiloghi finali: "errors 0" / "errori 0" non sono fallimenti.
+  if (/^(Projects|Progetti|Chat|Docs):/i.test(s)) {
+    if (/\berrori?\s+[1-9]\d*/i.test(s)) return "error";
+    return "ok";
+  }
+
+  if (
+    /\berrori?\s+[1-9]\d*/i.test(s) ||
+    /^ERRORE\b/i.test(s) ||
+    /\bErrore\s+(su|chat)\b/i.test(s) ||
+    /\bfallit/i.test(s) ||
+    /\bfail(?:ed|ure)?\b/i.test(s) ||
+    /HTTP\s*[45]\d\d/i.test(s)
+  ) {
+    return "error";
+  }
   if (
     /^Interrotto|^In pausa|^Ripresa\.|^Richiesta interruzione|^Aborted|^Paused|^Resumed\.|^Abort requested/i.test(
       s,

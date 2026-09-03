@@ -71,6 +71,20 @@
     return match ? decodeURIComponent(match[1]) : null;
   }
 
+  /** Login / OAuth callback: session API is unavailable; skip badge fetch. */
+  function isAuthPage() {
+    const path = location.pathname || "";
+    return path === "/login" || path.startsWith("/login/");
+  }
+
+  function isExpectedBadgeFetchError(err) {
+    const msg = err?.message || String(err || "");
+    return (
+      /Failed to fetch|NetworkError|Load failed|HTTP 401|HTTP 403/i.test(msg) ||
+      err?.name === "TypeError"
+    );
+  }
+
   async function fetchAllConversationSummaries(orgId) {
     const all = [];
     let offset = 0;
@@ -78,7 +92,7 @@
 
     for (;;) {
       const url =
-        `/api/organizations/${orgId}/chat_conversations_v2` +
+        `https://claude.ai/api/organizations/${orgId}/chat_conversations_v2` +
         `?limit=${limit}&offset=${offset}&consistency=eventual`;
       const res = await fetch(url, {
         credentials: "include",
@@ -179,6 +193,15 @@
       return;
     }
 
+    // Mid Google/OAuth login: cookie may still exist but API is unreachable.
+    if (isAuthPage()) {
+      const ago = formatAgo(sync.lastSuccessAt);
+      setButtonState(btn, ago ? t("content.updateOk", { ago }) : t("btn.update"), {
+        failing,
+      });
+      return;
+    }
+
     const orgId = readOrgIdFromCookie();
     if (!orgId) {
       pushBadgeCount(0);
@@ -207,7 +230,10 @@
         setButtonState(btn, label, { failing });
       }
     } catch (err) {
-      console.warn("[claudisk] badge:", err);
+      // Expected during logout, expired session, or navigation away mid-fetch.
+      if (!isExpectedBadgeFetchError(err)) {
+        console.warn("[claudisk] badge:", err);
+      }
       const ago = formatAgo(sync.lastSuccessAt);
       setButtonState(btn, ago ? t("content.updateOk", { ago }) : t("btn.update"), {
         failing,

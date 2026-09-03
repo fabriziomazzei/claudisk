@@ -1075,6 +1075,11 @@ body {
   font-weight: 600;
 }
 
+.log-row[data-level="ok"] {
+  background: color-mix(in srgb, var(--ok) 10%, transparent);
+  color: var(--ok);
+}
+
 .log-row[data-level="error"] {
   background: color-mix(in srgb, var(--err) 8%, transparent);
   color: var(--err);
