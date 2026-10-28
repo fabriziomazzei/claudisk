@@ -24,7 +24,6 @@ const include = [
   "src/background/offscreen.html",
   "src/background/offscreen.js",
   "src/content/content.js",
-  "src/content/content.css",
   "src/ui/claudisk.html",
   "src/ui/claudisk.js",
   "src/ui/claudisk.css",

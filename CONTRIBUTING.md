@@ -22,7 +22,7 @@ Thanks for considering a contribution to ClauDisk.
 | Area | Path |
 | --- | --- |
 | Service worker / offscreen | `src/background/` |
-| claude.ai button | `src/content/` |
+| claude.ai badge | `src/content/` |
 | App UI + tour + i18n | `src/ui/` |
 | Capture / FS / sync | `src/lib/` |
 | Store listing strings | `_locales/` |

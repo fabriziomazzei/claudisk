@@ -51,7 +51,11 @@ export function uniquifyFileName(fileName, usedLower) {
  */
 export function chatMarkdownFileName(title, uuid) {
   const id = String(uuid || "");
-  const short = id.slice(0, 8) || "00000000";
+  // Gli uuid classici usano i primi 8 caratteri. I thread cmsg_ condividono
+  // il prefisso del canale: il suffisso è la parte che li distingue.
+  const short = /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(id)
+    ? id.slice(0, 8)
+    : (id.slice(-8) || "00000000");
   const raw = String(title ?? "").trim();
   const emptyOrUuid =
     !raw || raw.toLowerCase() === id.toLowerCase();

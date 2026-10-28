@@ -205,24 +205,7 @@ export const MESSAGES = {
       "Open Statistics for a full-page view of chats by project, freshness, and recent syncs.",
     "tour.updateTitle": "Update",
     "tour.updateBody":
-      "After the folder is connected, use Update for incremental sync or Full sync to rebuild everything. You can also open ClauDisk from the button on claude.ai.",
-    "content.loading": "Loading…",
-    "content.loadingTitle": "Checking mirror status…",
-    "content.reconfirm": "Reconfirm",
-    "content.reconfirmTitle":
-      "Folder «{folder}» linked: open ClauDisk and reconfirm write permission",
-    "content.openMirror": "Open ClauDisk",
-    "content.openMirrorTitle": "Open ClauDisk to reconfirm folder and permission",
-    "content.configure": "Set up",
-    "content.configureTitle": "Connect a local folder in ClauDisk",
-    "content.updateNever": "Update · never synced",
-    "content.updateNew": "Update · {n} new",
-    "content.updateNewAgo": "Update · {n} new · {ago}",
-    "content.updateOk": "Update · {ago}",
-    "content.agoNow": "just now",
-    "content.agoMin": "{n}m ago",
-    "content.agoHour": "{n}h ago",
-    "content.agoDay": "{n}d ago",
+      "After the folder is connected, use Update for incremental sync or Full sync to rebuild everything. Open ClauDisk from the toolbar icon. It badges when chats are new or changed.",
   },
   it: {
     "meta.lede":
@@ -424,24 +407,7 @@ export const MESSAGES = {
       "Apri Statistiche per una pagina intera: chat per progetto, freschezza e sync recenti.",
     "tour.updateTitle": "Aggiorna",
     "tour.updateBody":
-      "Con la cartella collegata, usa Aggiorna per la sync incrementale o Sync completo per ricostruire tutto. Puoi aprire ClauDisk anche dal bottone su claude.ai.",
-    "content.loading": "Caricamento…",
-    "content.loadingTitle": "Sto controllando lo stato del mirror…",
-    "content.reconfirm": "Riconferma",
-    "content.reconfirmTitle":
-      "Cartella «{folder}» collegata: apri ClauDisk e riconferma il permesso di scrittura",
-    "content.openMirror": "Apri ClauDisk",
-    "content.openMirrorTitle": "Apri ClauDisk per riconfermare cartella e permesso",
-    "content.configure": "Configura",
-    "content.configureTitle": "Collega la cartella locale in ClauDisk",
-    "content.updateNever": "Aggiorna · mai aggiornato",
-    "content.updateNew": "Aggiorna · {n} nuove",
-    "content.updateNewAgo": "Aggiorna · {n} nuove · {ago}",
-    "content.updateOk": "Aggiorna · {ago}",
-    "content.agoNow": "ora",
-    "content.agoMin": "{n}m fa",
-    "content.agoHour": "{n}h fa",
-    "content.agoDay": "{n}g fa",
+      "Con la cartella collegata, usa Aggiorna per la sync incrementale o Sync completo per ricostruire tutto. Apri ClauDisk dall'icona nella barra: il badge segnala le chat nuove o cambiate.",
   },
 };
 

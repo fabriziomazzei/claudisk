@@ -100,11 +100,19 @@ export async function claudeFetchJson(path, opts = {}) {
     const merged = mergeSignals(requestTimeoutMs, opts.signal);
 
     try {
+      const headers = {
+        Accept: "application/json",
+        ...(opts.headers || {}),
+      };
+      if (path.startsWith("/v1/") && !headers["anthropic-version"]) {
+        headers["anthropic-version"] = "2023-06-01";
+      }
+
       const res = await fetch(`${BASE}${path}`, {
         method: "GET",
         credentials: "include",
         signal: merged.signal,
-        headers: { Accept: "application/json" },
+        headers,
       });
 
       if (res.ok) {
@@ -164,22 +172,35 @@ export async function resolveOrgId(signal) {
 
 export async function listAllProjects(orgId, onPage, signal) {
   const all = [];
+  const seen = new Set();
   let offset = 0;
-  const limit = 100;
+  const limit = 30;
 
   for (;;) {
     throwIfAborted(signal);
     if (offset > 0) await gap(signal);
     const body = await claudeFetchJson(
-      `/api/organizations/${orgId}/projects_v2?limit=${limit}&offset=${offset}`,
+      `/api/organizations/${orgId}/projects?include_harmony_projects=true&limit=${limit}&offset=${offset}&creator_filter=is_creator&order_by=latest_activity`,
       { signal },
     );
-    const batch = Array.isArray(body?.data) ? body.data : [];
-    all.push(...batch);
+    const batch = Array.isArray(body)
+      ? body
+      : (Array.isArray(body?.data) ? body.data : []);
+
+    let fresh = 0;
+    for (const project of batch) {
+      const id = project?.uuid;
+      if (id && seen.has(id)) continue;
+      if (id) seen.add(id);
+      all.push(project);
+      fresh += 1;
+    }
     onPage?.({ offset, totalSoFar: all.length });
 
-    const hasMore = Boolean(body?.pagination?.has_more ?? body?.has_more);
-    if (!hasMore || batch.length === 0) break;
+    const hasMore = body?.pagination?.has_more ?? body?.has_more;
+    if (batch.length === 0 || fresh === 0) break;
+    if (hasMore === false) break;
+    if (batch.length < limit) break;
     offset += limit;
   }
 
@@ -233,6 +254,108 @@ export async function listAllConversations(orgId, onPage, signal) {
   return all;
 }
 
+function conversationUpdatedMs(item) {
+  const ms = Date.parse(item?.updated_at || "");
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
+/**
+ * Chat di un singolo progetto. Dopo lo spostamento sui canali, alcune
+ * conversazioni non compaiono in chat_conversations_v2.
+ */
+export async function listProjectConversations(orgId, projectId, signal) {
+  const all = [];
+  const seen = new Set();
+  let offset = 0;
+  const limit = 100;
+
+  for (;;) {
+    throwIfAborted(signal);
+    if (offset > 0) await gap(signal);
+    const body = await claudeFetchJson(
+      `/api/organizations/${orgId}/projects/${projectId}/conversations_v2?limit=${limit}&offset=${offset}`,
+      { signal, maxAttempts: 1 },
+    );
+    const batch = Array.isArray(body)
+      ? body
+      : (Array.isArray(body?.data) ? body.data : []);
+
+    let fresh = 0;
+    for (const raw of batch) {
+      const id = raw?.uuid;
+      if (id && seen.has(id)) continue;
+      if (id) seen.add(id);
+      const item = raw?.project_uuid ? raw : { ...raw, project_uuid: projectId };
+      all.push(item);
+      fresh += 1;
+    }
+
+    const hasMore = body?.pagination?.has_more ?? body?.has_more;
+    if (batch.length === 0 || fresh === 0) break;
+    if (hasMore === false) break;
+    if (batch.length < limit) break;
+    offset += limit;
+  }
+
+  return all;
+}
+
+/**
+ * Unisce la lista globale con le chat lette progetto per progetto.
+ * Se lo stesso uuid c'è in entrambe, tiene l'updated_at più recente.
+ * Un progetto illeggibile non interrompe il resto.
+ */
+export async function mergeProjectConversations(orgId, projects, baseList, opts = {}) {
+  const { signal, onError } = opts;
+  const byId = new Map();
+  for (const item of baseList || []) {
+    if (item?.uuid) byId.set(item.uuid, item);
+  }
+
+  let added = 0;
+  let refreshed = 0;
+  let failed = 0;
+
+  for (const project of projects || []) {
+    const projectId = project?.uuid;
+    if (!projectId) continue;
+    throwIfAborted(signal);
+    await gap(signal);
+
+    let batch = [];
+    try {
+      batch = await listProjectConversations(orgId, projectId, signal);
+    } catch (err) {
+      if (err?.name === "AbortError") throw err;
+      failed += 1;
+      onError?.(project, err);
+      continue;
+    }
+
+    for (const item of batch) {
+      const id = item?.uuid;
+      if (!id) continue;
+      const prev = byId.get(id);
+      if (!prev) {
+        byId.set(id, item);
+        added += 1;
+        continue;
+      }
+      if (conversationUpdatedMs(item) > conversationUpdatedMs(prev)) {
+        byId.set(id, { ...prev, ...item });
+        refreshed += 1;
+      }
+    }
+  }
+
+  return {
+    list: [...byId.values()],
+    added,
+    refreshed,
+    failed,
+  };
+}
+
 export async function fetchConversation(orgId, chatId, signal) {
   return claudeFetchJson(
     `/api/organizations/${orgId}/chat_conversations/${chatId}` +
@@ -252,6 +375,11 @@ export async function fetchConversation(orgId, chatId, signal) {
  */
 export async function probeConversationExistence(orgId, chatId, signal) {
   throwIfAborted(signal);
+  // I thread dei canali (cmsg_) non esistono su chat_conversations: un 404
+  // qui non è una cancellazione.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(String(chatId || ""))) {
+    return "uncertain";
+  }
   const path =
     `/api/organizations/${orgId}/chat_conversations/${chatId}` +
     `?tree=True&rendering_mode=messages&render_all_tools=true&consistency=eventual`;

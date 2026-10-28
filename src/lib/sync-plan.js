@@ -6,6 +6,7 @@ import {
   resolveOrgId,
   listAllProjects,
   listAllConversations,
+  mergeProjectConversations,
   setRequestGapMs,
   setRequestTimeoutMs,
   setMaxRetries,
@@ -17,6 +18,11 @@ import { listMissingFromIndex } from "./deletions.js";
 import { loadSettings } from "./settings.js";
 import { loadSyncMeta } from "./sync-meta.js";
 import { sanitizeFileName } from "./names.js";
+import {
+  listChannelThreadItems,
+  mergeListedItems,
+  summarizeThreadsAgainstIndex,
+} from "./channel-threads.js";
 
 function resolveProjectFolder(index, projectUuid, projectEmbed) {
   if (!projectUuid) return "no-project";
@@ -73,37 +79,78 @@ export async function planCapture(root, options = {}) {
   );
   throwIfAborted(signal);
 
-  /** @type {{ id: string, titolo: string, kind: "new" | "known" }[]} */
+  /** @type {{ id: string, titolo: string, kind: "new" | "updated" | "known" }[]} */
   const projectRows = [];
   let projectsNew = 0;
+  let projectsUpdated = 0;
   let projectsKnown = 0;
   for (const p of projects) {
     const id = p?.uuid;
     if (!id) continue;
-    const known = Boolean(index.projects?.[id]);
-    if (known) {
-      projectsKnown += 1;
-      projectRows.push({
-        id,
-        titolo: p.name || id,
-        kind: "known",
-      });
-    } else {
+    const saved = index.projects?.[id];
+    const titolo = p.name || id;
+    if (!saved) {
       projectsNew += 1;
-      projectRows.push({
-        id,
-        titolo: p.name || id,
-        kind: "new",
-      });
+      projectRows.push({ id, titolo, kind: "new" });
+      continue;
     }
+    if (isStrictlyNewer(p.updated_at, saved.updated_at)) {
+      projectsUpdated += 1;
+      projectRows.push({ id, titolo, kind: "updated" });
+      continue;
+    }
+    projectsKnown += 1;
+    projectRows.push({ id, titolo, kind: "known" });
   }
 
   onStatus("Elenco conversazioni…");
-  const list = await listAllConversations(
+  let list = await listAllConversations(
     orgId,
     ({ totalSoFar }) => log(`Conversazioni elencate: ${totalSoFar}`),
     signal,
   );
+  throwIfAborted(signal);
+
+  onStatus("Integro le chat dei progetti…");
+  const mergedChats = await mergeProjectConversations(orgId, projects, list, {
+    signal,
+    onError: (project, err) => {
+      const label = project?.name || project?.uuid || "?";
+      log(`Lista chat progetto non letta (${label}): ${err?.message || err}`);
+    },
+  });
+  list = mergedChats.list;
+  log(
+    `Conversazioni dai progetti: +${mergedChats.added} assenti dalla lista globale, ` +
+      `${mergedChats.refreshed} con updated_at più recente` +
+      (mergedChats.failed ? `, ${mergedChats.failed} progetti non letti` : "") +
+      ".",
+  );
+
+  onStatus("Elenco i thread dei canali…");
+  const channelThreads = await listChannelThreadItems(projects, {
+    signal,
+    onError: (project, err) => {
+      const label = project?.name || project?.uuid || "?";
+      log(`Thread del canale non letti (${label}): ${err?.message || err}`);
+    },
+  });
+  const mergedThreads = mergeListedItems(list, channelThreads.items);
+  list = mergedThreads.list;
+  const threadDelta = summarizeThreadsAgainstIndex(
+    channelThreads.items,
+    index.chats,
+  );
+  log(
+    `Thread di canale: ${channelThreads.items.length} trovati ` +
+      `(${threadDelta.fresh} nuovi, ${threadDelta.newer} aggiornati, ` +
+      `${threadDelta.known} già nell'indice` +
+      (channelThreads.failed ? `, ${channelThreads.failed} canali non letti` : "") +
+      ").",
+  );
+  if (!channelThreads.items.length && channelThreads.shape) {
+    log(`Forma risposta thread: ${channelThreads.shape}`);
+  }
   throwIfAborted(signal);
 
   /** @type {{ id: string, titolo: string, kind: "new" | "updated", progetto: string }[]} */
@@ -148,6 +195,17 @@ export async function planCapture(root, options = {}) {
     }
   }
 
+  let newestChatAt = "";
+  let newestChatMs = 0;
+  for (const item of list) {
+    const ms = Date.parse(item?.updated_at || "");
+    if (Number.isFinite(ms) && ms > newestChatMs) {
+      newestChatMs = ms;
+      newestChatAt = item.updated_at;
+    }
+  }
+  log(`Chat più recente in lista: ${newestChatAt || "(nessun updated_at)"}.`);
+
   const deletionCandidates = firstSyncDone
     ? listMissingFromIndex(
         index,
@@ -167,23 +225,25 @@ export async function planCapture(root, options = {}) {
     projects: {
       total: projects.length,
       new: projectsNew,
+      updated: projectsUpdated,
       known: projectsKnown,
       note: force
         ? note(
             "Full sync: every project will be rechecked (docs/files).",
             "Sync completo: ogni progetto verrà ricontrollato (docs/file).",
           )
-        : note(
-            "Known projects may be skipped after the updated_at check.",
-            "I progetti già noti possono essere saltati dopo il controllo updated_at.",
-          ),
+        : projectsUpdated
+          ? note(
+              `${projectsUpdated} projects have a newer updated_at and will be rechecked (docs/files). The others may be skipped.`,
+              `${projectsUpdated} progetti hanno updated_at più recente e verranno ricontrollati (docs/file). Gli altri possono essere saltati.`,
+            )
+          : note(
+              "No project updated_at is newer than the index. Known projects may be skipped.",
+              "Nessun progetto ha updated_at più recente dell'indice. I progetti già noti possono essere saltati.",
+            ),
       sample: projectRows
-        .filter((p) => p.kind === "new")
-        .slice(0, 12)
-        .concat(
-          projectRows.filter((p) => p.kind === "known").slice(0, 8),
-        )
-        .slice(0, 16),
+        .filter((p) => p.kind === "updated" || p.kind === "new")
+        .slice(0, 24),
     },
     chats: {
       total: list.length,
@@ -220,7 +280,7 @@ export async function planCapture(root, options = {}) {
   log(
     `Piano: chat da scrivere ${plan.chats.toWrite} ` +
       `(+${chatsNew} nuove, ${chatsUpdated} agg.), ` +
-      `progetti ${projects.length} (${projectsNew} nuovi), ` +
+      `progetti ${projects.length} (${projectsNew} nuovi, ${projectsUpdated} da aggiornare), ` +
       `cancellazioni candidate ${deletionCandidates.length}.`,
   );
   onStatus("Piano pronto. Conferma per scrivere.");

@@ -17,6 +17,12 @@ export async function writeMirrorSync(index, result) {
     if (entry?.visto_il) vistoIlByChat[uuid] = entry.visto_il;
   }
 
+  /** @type {Record<string, string>} */
+  const updatedAtByProject = {};
+  for (const [id, entry] of Object.entries(index.projects || {})) {
+    if (entry?.updated_at) updatedAtByProject[id] = entry.updated_at;
+  }
+
   const consecutiveFailures = result.ok
     ? 0
     : (result.consecutiveFailures ?? (prev.consecutiveFailures || 0) + 1);
@@ -24,6 +30,7 @@ export async function writeMirrorSync(index, result) {
   /** @type {Record<string, unknown>} */
   const next = {
     vistoIlByChat,
+    updatedAtByProject,
     lastSuccessAt: result.ok
       ? new Date().toISOString()
       : prev.lastSuccessAt || null,

@@ -4,7 +4,6 @@ Shots already in this folder (use in README / Store):
 
 | File | Notes |
 | --- | --- |
-| `claudisk button.png` | Button on claude.ai |
 | `claudisk mirror ready.png` | ClauDisk tab ready |
 | `claudisk dryrunning.png` | Dry-run plan |
 | `claudisk stats.png` | Archive overview |

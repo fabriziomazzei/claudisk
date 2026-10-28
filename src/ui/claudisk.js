@@ -632,8 +632,8 @@ function renderPlan(plan, opts) {
   chips.push(
     chip(
       tr(
-        `${plan.projects.total} projects (${plan.projects.new} new)`,
-        `${plan.projects.total} progetti (${plan.projects.new} nuovi)`,
+        `${plan.projects.total} projects (${plan.projects.new} new, ${plan.projects.updated || 0} to refresh)`,
+        `${plan.projects.total} progetti (${plan.projects.new} nuovi, ${plan.projects.updated || 0} da aggiornare)`,
       ),
     ),
   );
@@ -693,6 +693,11 @@ function renderPlan(plan, opts) {
     plan.chats.sample.filter((c) => c.kind === "updated"),
     (c) =>
       `<li>${escapeHtml(c.titolo)} <span class="muted">(${escapeHtml(c.progetto)})</span></li>`,
+  );
+  pushGroup(
+    tr("Projects to refresh", "Progetti da aggiornare"),
+    plan.projects.sample.filter((p) => p.kind === "updated"),
+    (p) => `<li>${escapeHtml(p.titolo)}</li>`,
   );
   pushGroup(
     tr("New projects", "Progetti nuovi"),

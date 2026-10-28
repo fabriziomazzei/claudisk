@@ -177,7 +177,7 @@ export function conversationToMarkdown(conversation, opts) {
     `id: ${conversation.uuid}`,
     `titolo: ${yamlScalar(conversation.name || "")}`,
     `progetto: ${yamlScalar(projectLabel)}`,
-    `url: https://claude.ai/chat/${conversation.uuid}`,
+    `url: ${yamlScalar(conversation.url || `https://claude.ai/chat/${conversation.uuid}`)}`,
     `creata: ${conversation.created_at || ""}`,
     `ultima_cattura: ${capturedAt}`,
     yamlStringList("tags", tags),

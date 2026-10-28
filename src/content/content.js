@@ -1,60 +1,15 @@
 /**
- * Injects the ClauDisk button on claude.ai.
- *
- * Content scripts are classic scripts (Chrome ignores "type":"module" here),
- * so shared ES modules are loaded via dynamic import() + web_accessible_resources.
+ * While claude.ai is open, count chats and projects newer than the last sync
+ * and push that count to the toolbar badge. The page itself stays untouched:
+ * Claude's layout has no room for an overlay button.
  */
 
 (async () => {
-  const [{ setLocale, t }, { SETTINGS_KEY }] = await Promise.all([
-    import(chrome.runtime.getURL("src/ui/i18n.js")),
-    import(chrome.runtime.getURL("src/lib/settings.js")),
-  ]);
-
-  const BUTTON_ID = "claudisk-aggiorna";
   const MIRROR_SYNC_KEY = "mirrorSync";
   const MIRROR_SETUP_KEY = "mirrorSetup";
   const REFRESH_MS = 10 * 60 * 1000;
 
-  async function syncLocaleFromSettings() {
-    const data = await chrome.storage.local.get(SETTINGS_KEY);
-    const locale = data[SETTINGS_KEY]?.locale;
-    setLocale(locale === "it" ? "it" : "en");
-  }
-
-  function openMirrorTab() {
-    // No response expected (SW opens the tab as a side effect). Awaiting a
-    // reply races with the offscreen onMessage listener and throws at this line.
-    if (!chrome.runtime?.id) return;
-    try {
-      const sent = chrome.runtime.sendMessage({ type: "open-mirror" });
-      if (sent && typeof sent.then === "function") {
-        sent.catch((err) => {
-          const msg = err?.message || String(err);
-          // Expected when another listener (offscreen) closes the port first;
-          // the SW still handles the message and opens the tab.
-          if (/port closed|receiving end does not exist/i.test(msg)) return;
-          console.warn("[claudisk] open-mirror:", msg);
-        });
-      }
-    } catch (err) {
-      console.warn("[claudisk] open-mirror:", err?.message || err);
-    }
-  }
-
-  function formatAgo(iso) {
-    if (!iso) return null;
-    const ms = Date.now() - Date.parse(iso);
-    if (Number.isNaN(ms) || ms < 0) return null;
-    if (ms < 60_000) return t("content.agoNow");
-    if (ms < 3_600_000) {
-      return t("content.agoMin", { n: Math.max(1, Math.round(ms / 60_000)) });
-    }
-    if (ms < 86_400_000) {
-      return t("content.agoHour", { n: Math.max(1, Math.round(ms / 3_600_000)) });
-    }
-    return t("content.agoDay", { n: Math.max(1, Math.round(ms / 86_400_000)) });
-  }
+  document.getElementById("claudisk-aggiorna")?.remove();
 
   function isStrictlyNewer(current, saved) {
     if (!current) return false;
@@ -111,6 +66,46 @@
     return all;
   }
 
+  async function fetchAllProjects(orgId) {
+    const all = [];
+    const seen = new Set();
+    let offset = 0;
+    const limit = 30;
+
+    for (;;) {
+      const url =
+        `https://claude.ai/api/organizations/${orgId}/projects` +
+        `?include_harmony_projects=true&limit=${limit}&offset=${offset}` +
+        `&creator_filter=is_creator&order_by=latest_activity`;
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: { Accept: "application/json" },
+      });
+      if (!res.ok) {
+        throw new Error(`project list HTTP ${res.status}`);
+      }
+      const body = await res.json();
+      const batch = Array.isArray(body)
+        ? body
+        : (Array.isArray(body?.data) ? body.data : []);
+      let fresh = 0;
+      for (const project of batch) {
+        const id = project?.uuid;
+        if (id && seen.has(id)) continue;
+        if (id) seen.add(id);
+        all.push(project);
+        fresh += 1;
+      }
+      const hasMore = body?.pagination?.has_more ?? body?.has_more;
+      if (batch.length === 0 || fresh === 0) break;
+      if (hasMore === false) break;
+      if (batch.length < limit) break;
+      offset += limit;
+    }
+
+    return all;
+  }
+
   function pushBadgeCount(count) {
     if (!chrome.runtime?.id) return;
     try {
@@ -125,87 +120,37 @@
     }
   }
 
-  /**
-   * @param {HTMLButtonElement} btn
-   * @param {string} label
-   * @param {{ failing?: boolean, title?: string, loading?: boolean, disabled?: boolean }} [opts]
-   */
-  function setButtonState(btn, label, opts = {}) {
-    btn.textContent = label;
-    btn.classList.toggle("claudisk-failing", Boolean(opts.failing));
-    btn.classList.toggle("claudisk-loading", Boolean(opts.loading));
-    const disabled = Boolean(opts.loading || opts.disabled);
-    btn.disabled = disabled;
-    btn.setAttribute("aria-busy", opts.loading ? "true" : "false");
-    btn.title = opts.title || label;
-  }
-
   async function loadSetup() {
     const data = await chrome.storage.local.get(MIRROR_SETUP_KEY);
     const raw = data[MIRROR_SETUP_KEY];
     if (!raw || typeof raw !== "object") {
-      return { ready: false, folderName: null };
+      return { ready: false };
     }
-    return {
-      ready: Boolean(raw.ready),
-      folderName: raw.folderName ? String(raw.folderName) : null,
-    };
+    return { ready: Boolean(raw.ready) };
   }
 
-  async function refreshBadge(btn, opts = {}) {
-    await syncLocaleFromSettings();
-    const showLoading = opts.showLoading !== false;
-    if (showLoading) {
-      setButtonState(btn, t("content.loading"), {
-        loading: true,
-        title: t("content.loadingTitle"),
-      });
-    }
-
+  async function refreshBadge() {
     const setup = await loadSetup();
     const syncBag = await chrome.storage.local.get(MIRROR_SYNC_KEY);
     const sync = syncBag[MIRROR_SYNC_KEY];
 
     if (!setup.ready) {
       pushBadgeCount(0);
-      if (setup.folderName) {
-        setButtonState(btn, t("content.reconfirm"), {
-          title: t("content.reconfirmTitle", { folder: setup.folderName }),
-        });
-      } else if (sync?.lastSuccessAt || sync?.vistoIlByChat) {
-        setButtonState(btn, t("content.openMirror"), {
-          title: t("content.openMirrorTitle"),
-        });
-      } else {
-        setButtonState(btn, t("content.configure"), {
-          title: t("content.configureTitle"),
-        });
-      }
       return;
     }
 
     const map = sync?.vistoIlByChat;
-    const failing = (sync?.consecutiveFailures || 0) >= 2;
-
     if (!map || typeof map !== "object" || Object.keys(map).length === 0) {
       pushBadgeCount(0);
-      setButtonState(btn, t("content.updateNever"), { failing });
       return;
     }
 
     // Mid Google/OAuth login: cookie may still exist but API is unreachable.
-    if (isAuthPage()) {
-      const ago = formatAgo(sync.lastSuccessAt);
-      setButtonState(btn, ago ? t("content.updateOk", { ago }) : t("btn.update"), {
-        failing,
-      });
-      return;
-    }
+    if (isAuthPage()) return;
 
     const orgId = readOrgIdFromCookie();
     if (!orgId) {
       pushBadgeCount(0);
-      setButtonState(btn, t("content.updateNever"), { failing });
       return;
     }
 
@@ -217,102 +162,43 @@
         if (isStrictlyNewer(item.updated_at, map[item.uuid])) changed += 1;
       }
 
-      pushBadgeCount(changed);
-      const ago = formatAgo(sync.lastSuccessAt);
-      if (changed === 0) {
-        setButtonState(btn, ago ? t("content.updateOk", { ago }) : t("btn.update"), {
-          failing,
-        });
-      } else {
-        const label = ago
-          ? t("content.updateNewAgo", { n: changed, ago })
-          : t("content.updateNew", { n: changed });
-        setButtonState(btn, label, { failing });
+      const projectMap = sync?.updatedAtByProject;
+      if (projectMap && typeof projectMap === "object") {
+        try {
+          const projects = await fetchAllProjects(orgId);
+          for (const project of projects) {
+            if (!project?.uuid) continue;
+            if (isStrictlyNewer(project.updated_at, projectMap[project.uuid])) {
+              changed += 1;
+            }
+          }
+        } catch (err) {
+          if (!isExpectedBadgeFetchError(err)) {
+            console.warn("[claudisk] badge projects:", err);
+          }
+        }
       }
+
+      pushBadgeCount(changed);
     } catch (err) {
       // Expected during logout, expired session, or navigation away mid-fetch.
       if (!isExpectedBadgeFetchError(err)) {
         console.warn("[claudisk] badge:", err);
       }
-      const ago = formatAgo(sync.lastSuccessAt);
-      setButtonState(btn, ago ? t("content.updateOk", { ago }) : t("btn.update"), {
-        failing,
-      });
     }
   }
 
-  function buildButton() {
-    const btn = document.createElement("button");
-    btn.id = BUTTON_ID;
-    btn.type = "button";
-    btn.textContent = t("content.loading");
-    btn.title = t("content.loadingTitle");
-    btn.disabled = true;
-    btn.classList.add("claudisk-loading");
-    btn.setAttribute("aria-busy", "true");
-    btn.addEventListener("click", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      if (btn.disabled || btn.classList.contains("claudisk-loading")) return;
-      openMirrorTab();
-    });
-    return btn;
-  }
+  refreshBadge().catch(() => {});
 
-  function ensureButton() {
-    let btn = document.getElementById(BUTTON_ID);
-    if (btn) return /** @type {HTMLButtonElement} */ (btn);
-    if (!document.body) return null;
-    btn = buildButton();
-    document.body.appendChild(btn);
-    return btn;
-  }
+  setInterval(() => {
+    refreshBadge().catch(() => {});
+  }, REFRESH_MS);
 
-  function onDomChanged() {
-    if (document.getElementById(BUTTON_ID)) return;
-    const btn = ensureButton();
-    if (btn) refreshBadge(btn).catch(() => {});
-  }
-
-  async function start() {
-    await syncLocaleFromSettings();
-    const btn = ensureButton();
-    if (btn) refreshBadge(btn).catch(() => {});
-
-    const observer = new MutationObserver(onDomChanged);
-    observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-    });
-
-    setInterval(onDomChanged, 2000);
-    setInterval(() => {
-      const current = document.getElementById(BUTTON_ID);
-      if (current) refreshBadge(current, { showLoading: false }).catch(() => {});
-    }, REFRESH_MS);
-
-    chrome.storage.onChanged.addListener((changes, area) => {
-      if (area !== "local") return;
-      if (
-        !changes[MIRROR_SYNC_KEY] &&
-        !changes[MIRROR_SETUP_KEY] &&
-        !changes[SETTINGS_KEY]
-      ) {
-        return;
-      }
-      const current = document.getElementById(BUTTON_ID);
-      if (current) refreshBadge(current, { showLoading: false }).catch(() => {});
-    });
-  }
-
-  if (document.body) {
-    await start();
-  } else {
-    await new Promise((resolve) => {
-      document.addEventListener("DOMContentLoaded", resolve, { once: true });
-    });
-    await start();
-  }
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") return;
+    if (!changes[MIRROR_SYNC_KEY] && !changes[MIRROR_SETUP_KEY]) return;
+    refreshBadge().catch(() => {});
+  });
 })().catch((err) => {
   console.error("[claudisk] content script failed:", err);
 });

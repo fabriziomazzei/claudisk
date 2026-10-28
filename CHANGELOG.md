@@ -2,6 +2,17 @@
 
 All notable changes to ClauDisk are documented here.
 
+## [1.3.0] - 2026-10-12
+
+### Fixed
+- Project discovery follows Claude's current project list, including archived projects that were moved to channels. The previous list came back empty, so sync saw no projects.
+- Update dry-run reports projects whose `updated_at` is newer than the index. Before, it only counted project ids that had never been seen, so a changed project looked like "nothing to update".
+- Chat discovery also reads each project's own conversation list. Threads missing from the global chat list, or listed there with an older `updated_at`, are included.
+- New project chats are read from the channel thread list (`/v1/code/channels/…/threads`). Those threads are not in the old conversation list.
+
+### Removed
+- Floating Update button on claude.ai. Claude's new layout placed it over page controls. The toolbar icon still badges when chats are new or not yet synced, and it still opens ClauDisk.
+
 ## [1.2.0] - 2026-08-10
 
 ### Added

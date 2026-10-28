@@ -3,7 +3,9 @@
  */
 
 import {
+  listAllProjects,
   listAllConversations,
+  mergeProjectConversations,
   fetchConversation,
   gap,
   throwIfAborted,
@@ -20,6 +22,12 @@ import {
 import { collectArtifacts } from "./artifacts.js";
 import { captureMessageAttachments } from "./attachments.js";
 import { isStrictlyNewer } from "./index-store.js";
+import {
+  listChannelThreadItems,
+  mergeListedItems,
+  fetchThreadConversation,
+  summarizeThreadsAgainstIndex,
+} from "./channel-threads.js";
 
 function resolveProjectFolder(index, projectUuid, projectEmbed) {
   if (!projectUuid) return "no-project";
@@ -110,6 +118,53 @@ export async function captureConversations(root, index, orgId, options = {}) {
     ({ totalSoFar }) => log(`Conversazioni elencate: ${totalSoFar}`),
     signal,
   );
+
+  log("Integro le chat elencate dentro i progetti…");
+  const projectsForChats = await listAllProjects(orgId, null, signal);
+  const mergedChats = await mergeProjectConversations(
+    orgId,
+    projectsForChats,
+    list,
+    {
+      signal,
+      onError: (project, err) => {
+        const label = project?.name || project?.uuid || "?";
+        log(`Lista chat progetto non letta (${label}): ${err?.message || err}`);
+      },
+    },
+  );
+  list = mergedChats.list;
+  log(
+    `Conversazioni dai progetti: +${mergedChats.added} assenti dalla lista globale, ` +
+      `${mergedChats.refreshed} con updated_at più recente` +
+      (mergedChats.failed ? `, ${mergedChats.failed} progetti non letti` : "") +
+      ".",
+  );
+
+  log("Elenco i thread dei canali…");
+  const channelThreads = await listChannelThreadItems(projectsForChats, {
+    signal,
+    onError: (project, err) => {
+      const label = project?.name || project?.uuid || "?";
+      log(`Thread del canale non letti (${label}): ${err?.message || err}`);
+    },
+  });
+  const mergedThreads = mergeListedItems(list, channelThreads.items);
+  list = mergedThreads.list;
+  const threadDelta = summarizeThreadsAgainstIndex(
+    channelThreads.items,
+    chatsIndex,
+  );
+  log(
+    `Thread di canale: ${channelThreads.items.length} trovati ` +
+      `(${threadDelta.fresh} nuovi, ${threadDelta.newer} aggiornati, ` +
+      `${threadDelta.known} già nell'indice` +
+      (channelThreads.failed ? `, ${channelThreads.failed} canali non letti` : "") +
+      ").",
+  );
+  if (!channelThreads.items.length && channelThreads.shape) {
+    log(`Forma risposta thread: ${channelThreads.shape}`);
+  }
 
   if (onlyChatUuids != null) {
     const set = new Set(onlyChatUuids);
@@ -212,7 +267,8 @@ export async function captureConversations(root, index, orgId, options = {}) {
         percorso: relativePath,
         project_uuid: projectUuid,
         titolo: item.name || prev?.titolo || "",
-        tipo: "chat",
+        tipo: item.channel_id ? "thread" : (prev?.tipo || "chat"),
+        channel_id: item.channel_id || prev?.channel_id || null,
       };
       stats.conversations_skipped += 1;
       continue;
@@ -225,7 +281,9 @@ export async function captureConversations(root, index, orgId, options = {}) {
       log(`[${i + 1}/${list.length}] Catturo chat: ${displayTitle} (${uuid.slice(0, 8)}…)`);
       await pauseGate();
       await gap(signal);
-      const full = await fetchConversation(orgId, uuid, signal);
+      const full = item.channel_id
+        ? await fetchThreadConversation(item, signal)
+        : await fetchConversation(orgId, uuid, signal);
 
       await writeJsonFile(rawDir, `${uuid}.json`, full);
 
@@ -369,7 +427,8 @@ export async function captureConversations(root, index, orgId, options = {}) {
         percorso: finalPath,
         visto_il: updatedAt || full.updated_at || capturedAt,
         project_uuid: fullProjectUuid,
-        tipo: "chat",
+        tipo: item.channel_id ? "thread" : "chat",
+        channel_id: item.channel_id || null,
         titolo: fullTitle || "",
         messaggi,
         model: full.model || item.model || null,

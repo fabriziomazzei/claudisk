@@ -13,7 +13,7 @@
 <p align="center">
   <a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-c45c26?style=flat-square" alt="MIT" /></a>
   <a href="./manifest.json"><img src="https://img.shields.io/badge/Chrome%20%2F%20Edge-MV3-4285F4?style=flat-square" alt="Chrome / Edge MV3" /></a>
-  <a href="./CHANGELOG.md"><img src="https://img.shields.io/badge/version-1.2.0-1a1a18?style=flat-square" alt="1.2.0" /></a>
+  <a href="./CHANGELOG.md"><img src="https://img.shields.io/badge/version-1.3.0-1a1a18?style=flat-square" alt="1.3.0" /></a>
   <a href="https://claudisk-web.vercel.app"><img src="https://img.shields.io/badge/site-claudisk--web.vercel.app-000?style=flat-square" alt="Website" /></a>
 </p>
 
@@ -83,7 +83,7 @@ Point Cursor or Claude Code at that folder and ask across projects in one go - w
 | :--- | :--- |
 | [Quick start](#quick-start) | Four steps from install to first vault |
 | [Why ClauDisk](#why-claudisk) | One-shot export vs a living local mirror |
-| [How it works](#how-it-works) | Button → plan → disk → Cursor / Claude Code |
+| [How it works](#how-it-works) | Toolbar icon, plan, disk, then Cursor or Claude Code |
 | [Install (Chrome or Edge)](#install-chrome-or-edge) | Unpacked load on Chromium browsers |
 | [Features](#features) | Dry-run, tags, soft-delete, stats, and more |
 | [Privacy](#privacy) | Local-first; nothing leaves your machine via ClauDisk |
@@ -98,7 +98,7 @@ Point Cursor or Claude Code at that folder and ask across projects in one go - w
 ## Quick start
 
 1. Load the unpacked extension in Chrome or Edge (`chrome://extensions` / `edge://extensions`)
-2. Open [claude.ai](https://claude.ai) and click the ClauDisk button
+2. Click the ClauDisk icon in the toolbar
 3. Choose a local folder → run **Update**
 4. Open that folder in Cursor or Claude Code and ask across projects
 
@@ -122,12 +122,9 @@ Most tools do a **one-shot export**. ClauDisk keeps a **living folder** on your 
 
 ## How it works
 
-### 1. One button on Claude.ai
+### 1. Toolbar icon
 
-<p align="center">
-  <img src="docs/screenshots/claudisk%20button.png" width="90%" alt="ClauDisk button on claude.ai" />
-</p>
-<p align="center"><em>Bottom-right on claude.ai - open the mirror when chats change.</em></p>
+Open ClauDisk from the extension icon. On claude.ai that icon badges when chats or projects are new or changed since the last sync.
 
 ### 2. Control room
 
@@ -181,10 +178,10 @@ Works on **Chrome** and **Edge** (Chromium) with the same unpacked load - no cod
 2. Open `chrome://extensions` or `edge://extensions`
 3. Enable **Developer mode**
 4. **Load unpacked** → select this folder (the one with `manifest.json`)
-5. Open [claude.ai](https://claude.ai) → use the ClauDisk button, or the toolbar icon
+5. Click the ClauDisk toolbar icon
 6. Connect a local folder and run **Update**
 
-Optional packaging: `npm run zip` → `dist/claudisk-1.2.0.zip`
+Optional packaging: `npm run zip` → `dist/claudisk-1.3.0.zip`
 
 Site: [claudisk-web.vercel.app](https://claudisk-web.vercel.app)
 
@@ -238,7 +235,7 @@ _locales/          Store name & description (en, it)
 icons/
 src/
   background/      Service worker + offscreen
-  content/         Button on claude.ai
+  content/         Badge while claude.ai is open
   ui/              ClauDisk tab
   lib/             Capture, filesystem, sync
 docs/screenshots/  README images + GIFs

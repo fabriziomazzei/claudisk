@@ -96,6 +96,69 @@ export function humanizeLogLine(line, locale = "en") {
       `Conversazioni trovate finora: ${RegExp.$1}`,
     );
   }
+  if (/^Integro le chat elencate dentro i progetti/i.test(s)) {
+    return t(
+      loc,
+      "Adding chats listed inside each project…",
+      "Integro le chat elencate dentro i progetti…",
+    );
+  }
+  m = s.match(
+    /^Conversazioni dai progetti: \+(\d+) assenti dalla lista globale, (\d+) con updated_at più recente(?:, (\d+) progetti non letti)?\./i,
+  );
+  if (m) {
+    const unread = m[3]
+      ? t(loc, `, ${m[3]} projects unreadable`, `, ${m[3]} progetti non letti`)
+      : "";
+    return t(
+      loc,
+      `Project chat lists: +${m[1]} missing from the global list, ${m[2]} with a newer updated_at${unread}.`,
+      s,
+    );
+  }
+  if (/^Lista chat progetto non letta/i.test(s)) {
+    if (loc === "it") return s;
+    return s.replace(
+      /^Lista chat progetto non letta/i,
+      "Project chat list unreadable",
+    );
+  }
+  if (/^Elenco i thread dei canali/i.test(s)) {
+    return t(
+      loc,
+      "Listing channel threads…",
+      "Elenco i thread dei canali…",
+    );
+  }
+  m = s.match(
+    /^Thread di canale: (\d+) trovati \((\d+) nuovi, (\d+) aggiornati, (\d+) già nell'indice(?:, (\d+) canali non letti)?\)\./i,
+  );
+  if (m) {
+    const unread = m[5]
+      ? t(loc, `, ${m[5]} channels unreadable`, `, ${m[5]} canali non letti`)
+      : "";
+    return t(
+      loc,
+      `Channel threads: ${m[1]} found (${m[2]} new, ${m[3]} updated, ${m[4]} already in the index${unread}).`,
+      s,
+    );
+  }
+  if (/^Forma risposta thread:/i.test(s)) {
+    if (loc === "it") return s;
+    return s.replace(/^Forma risposta thread:/i, "Thread response shape:");
+  }
+  if (/^Thread del canale non letti/i.test(s)) {
+    if (loc === "it") return s;
+    return s.replace(/^Thread del canale non letti/i, "Channel threads unreadable");
+  }
+  m = s.match(/^Chat più recente in lista:\s*(.+)\.$/);
+  if (m) {
+    return t(
+      loc,
+      `Newest chat in the list: ${m[1]}.`,
+      s,
+    );
+  }
   if (/^Conversazioni totali in lista:\s*(\d+)/i.test(s)) {
     return t(
       loc,
@@ -467,6 +530,7 @@ export function humanizeLogLine(line, locale = "en") {
       .replace(/chat da scrivere/i, "chats to write")
       .replace(/nuove/i, "new")
       .replace(/agg\./i, "upd.")
+      .replace(/da aggiornare/i, "to refresh")
       .replace(/progetti/i, "projects")
       .replace(/nuovi/i, "new")
       .replace(/cancellazioni candidate/i, "deletion candidates");

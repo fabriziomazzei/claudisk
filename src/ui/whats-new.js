@@ -15,6 +15,30 @@
 /** @type {WhatsNewRelease[]} */
 export const WHATS_NEW = [
   {
+    version: "1.3.0",
+    date: "2026-10-12",
+    title: {
+      en: "Projects visible again",
+      it: "I progetti si vedono di nuovo",
+    },
+    bullets: {
+      en: [
+        "Project list follows Claude's new endpoint, including archived projects moved to channels",
+        "Update reports projects with a newer updated_at, not only ones never seen before",
+        "Chats are also collected from each project's own conversation list",
+        "New project threads are read from the channel, which the old chat list does not include",
+        "Removed the Update button on claude.ai. It covered page controls in the new layout. The toolbar badge still flags chats that are new or not yet synced",
+      ],
+      it: [
+        "L'elenco progetti segue il nuovo endpoint di Claude, inclusi i progetti archiviati spostati nei canali",
+        "Update segnala i progetti con updated_at più recente, non solo quelli mai visti",
+        "Le chat si raccolgono anche dalla lista conversazioni di ogni progetto",
+        "I thread nuovi si leggono dal canale del progetto, assente dalla lista chat vecchia",
+        "Tolto il pulsante Aggiorna su claude.ai: col nuovo layout copriva i controlli della pagina. Il badge sull'icona resta e segnala le chat nuove o non ancora aggiornate",
+      ],
+    },
+  },
+  {
     version: "1.2.0",
     date: "2026-08-10",
     title: {
