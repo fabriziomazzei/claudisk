@@ -6,7 +6,7 @@
 import { claudeFetchJson, gap, throwIfAborted } from "./api.js";
 import { isStrictlyNewer } from "./index-store.js";
 
-function channelIdOf(project) {
+export function channelIdOf(project) {
   return project?.moved_to?.channel_tagged_id || project?.channel_id || null;
 }
 

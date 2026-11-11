@@ -423,3 +423,43 @@ export async function probeConversationExistence(orgId, chatId, signal) {
     merged.cleanup();
   }
 }
+
+/**
+ * Esistenza di un thread di canale per soft-delete.
+ * "missing" solo su 404 esplicito; "exists" solo se torna almeno un messaggio.
+ * @param {string} channelId
+ * @param {string} threadId
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<"exists" | "missing" | "uncertain">}
+ */
+export async function probeThreadExistence(channelId, threadId, signal) {
+  throwIfAborted(signal);
+  if (!/^chan_[A-Za-z0-9]+$/.test(String(channelId || ""))) return "uncertain";
+  if (!/^cmsg_[A-Za-z0-9]+$/.test(String(threadId || ""))) return "uncertain";
+  const path = `/v1/code/channels/${channelId}/threads/${threadId}?limit=1`;
+
+  const merged = mergeSignals(requestTimeoutMs, signal);
+  try {
+    const res = await fetch(`${BASE}${path}`, {
+      method: "GET",
+      credentials: "include",
+      signal: merged.signal,
+      headers: { Accept: "application/json", "anthropic-version": "2023-06-01" },
+    });
+    if (res.status === 404) return "missing";
+    if (!res.ok) return "uncertain";
+    try {
+      const body = await res.json();
+      return Array.isArray(body?.data) && body.data.length > 0
+        ? "exists"
+        : "uncertain";
+    } catch {
+      return "uncertain";
+    }
+  } catch (err) {
+    if (err?.name === "AbortError") throwIfAborted(signal);
+    return "uncertain";
+  } finally {
+    merged.cleanup();
+  }
+}

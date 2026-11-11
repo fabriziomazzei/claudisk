@@ -27,6 +27,7 @@ import {
   mergeListedItems,
   fetchThreadConversation,
   summarizeThreadsAgainstIndex,
+  channelIdOf,
 } from "./channel-threads.js";
 
 function resolveProjectFolder(index, projectUuid, projectEmbed) {
@@ -119,11 +120,23 @@ export async function captureConversations(root, index, orgId, options = {}) {
     signal,
   );
 
-  log("Integro le chat elencate dentro i progetti…");
   const projectsForChats = await listAllProjects(orgId, null, signal);
+  // Nel delta i progetti spostati sui canali sono coperti dai thread:
+  // la loro lista chat non aggiunge nulla. Il sync completo la rilegge.
+  const projectsToMerge = force
+    ? projectsForChats
+    : projectsForChats.filter((p) => !channelIdOf(p));
+  if (projectsToMerge.length < projectsForChats.length) {
+    log(
+      `Liste chat dei progetti: salto ${projectsForChats.length - projectsToMerge.length} progetti su canale.`,
+    );
+  }
+  if (projectsToMerge.length) {
+    log("Integro le chat elencate dentro i progetti…");
+  }
   const mergedChats = await mergeProjectConversations(
     orgId,
-    projectsForChats,
+    projectsToMerge,
     list,
     {
       signal,
@@ -134,12 +147,14 @@ export async function captureConversations(root, index, orgId, options = {}) {
     },
   );
   list = mergedChats.list;
-  log(
-    `Conversazioni dai progetti: +${mergedChats.added} assenti dalla lista globale, ` +
-      `${mergedChats.refreshed} con updated_at più recente` +
-      (mergedChats.failed ? `, ${mergedChats.failed} progetti non letti` : "") +
-      ".",
-  );
+  if (projectsToMerge.length) {
+    log(
+      `Conversazioni dai progetti: +${mergedChats.added} assenti dalla lista globale, ` +
+        `${mergedChats.refreshed} con updated_at più recente` +
+        (mergedChats.failed ? `, ${mergedChats.failed} progetti non letti` : "") +
+        ".",
+    );
+  }
 
   log("Elenco i thread dei canali…");
   const channelThreads = await listChannelThreadItems(projectsForChats, {
@@ -278,7 +293,7 @@ export async function captureConversations(root, index, orgId, options = {}) {
     const displayTitle = title || "senza-titolo";
 
     try {
-      log(`[${i + 1}/${list.length}] Catturo chat: ${displayTitle} (${uuid.slice(0, 8)}…)`);
+      log(`[${i + 1}/${list.length}] Catturo ${item.channel_id ? "thread" : "chat"}: ${displayTitle} (${uuid.slice(0, 8)}…)`);
       await pauseGate();
       await gap(signal);
       const full = item.channel_id

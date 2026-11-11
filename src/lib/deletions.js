@@ -17,6 +17,7 @@ import {
   gap,
   throwIfAborted,
   probeConversationExistence,
+  probeThreadExistence,
 } from "./api.js";
 import {
   softDeleteRelativePath,
@@ -26,10 +27,20 @@ import {
 const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
+ * Thread di canale (cmsg_…). L'elenco thread restituisce solo una finestra
+ * recente: l'assenza dalla lista non indica una cancellazione.
+ */
+function isThreadEntry(uuid, entry) {
+  return entry?.tipo === "thread" || String(uuid).startsWith("cmsg_");
+}
+
+/**
  * @param {any} index
  * @param {Iterable<string>} listedUuids
+ * Nel delta i thread sono esclusi (lista parziale); nel sync completo
+ * entrano e vengono verificati sull'endpoint del singolo thread.
  * @param {{ force?: boolean, now?: number }} [opts]
- * @returns {{ uuid: string, titolo: string, percorso: string, visto_il: string }[]}
+ * @returns {{ uuid: string, titolo: string, percorso: string, visto_il: string, channel_id: string | null }[]}
  */
 export function listMissingFromIndex(index, listedUuids, opts = {}) {
   const force = Boolean(opts.force);
@@ -38,12 +49,14 @@ export function listMissingFromIndex(index, listedUuids, opts = {}) {
     [...listedUuids].map((u) => String(u)).filter(Boolean),
   );
   const chats = index.chats && typeof index.chats === "object" ? index.chats : {};
-  /** @type {{ uuid: string, titolo: string, percorso: string, visto_il: string }[]} */
+  /** @type {{ uuid: string, titolo: string, percorso: string, visto_il: string, channel_id: string | null }[]} */
   const out = [];
 
   for (const [uuid, entry] of Object.entries(chats)) {
     if (!entry?.percorso) continue;
     if (listed.has(uuid)) continue;
+    const thread = isThreadEntry(uuid, entry);
+    if (thread && !force) continue;
 
     if (!force) {
       const visto = entry.visto_il ? Date.parse(entry.visto_il) : NaN;
@@ -55,6 +68,7 @@ export function listMissingFromIndex(index, listedUuids, opts = {}) {
       titolo: entry.titolo || uuid,
       percorso: entry.percorso,
       visto_il: entry.visto_il || "",
+      channel_id: thread ? entry.channel_id || null : null,
     });
   }
 
@@ -119,7 +133,8 @@ export async function processDeletions(
     return stats;
   }
 
-  const missingFromList = listMissingFromIndex(index, listedUuids, { force });
+  const listed = new Set([...listedUuids].map((u) => String(u)).filter(Boolean));
+  const missingFromList = listMissingFromIndex(index, listed, { force });
   if (!missingFromList.length) {
     log("Nessuna chat assente dalla lista da verificare.");
     return stats;
@@ -132,6 +147,29 @@ export async function processDeletions(
       (force ? " (sync completo)" : " (viste negli ultimi 30 giorni)"),
   );
 
+  // Controllo di sanità per i thread: un thread presente in lista deve
+  // risultare "exists". Se no, l'endpoint non è affidabile e nessun thread
+  // viene spostato (un 404 generalizzato non è una cancellazione).
+  let threadProbeTrusted = false;
+  if (missingFromList.some((item) => item.channel_id)) {
+    const chats = index.chats || {};
+    const canary = [...listed].find(
+      (uuid) => isThreadEntry(uuid, chats[uuid]) && chats[uuid]?.channel_id,
+    );
+    if (canary) {
+      await gap(signal);
+      const verdict = await probeThreadExistence(
+        chats[canary].channel_id,
+        canary,
+        signal,
+      );
+      threadProbeTrusted = verdict === "exists";
+    }
+    if (!threadProbeTrusted) {
+      log("Verifica thread non affidabile: nessun thread verrà spostato.");
+    }
+  }
+
   /** @type {typeof missingFromList} */
   const confirmedGone = [];
 
@@ -140,11 +178,13 @@ export async function processDeletions(
     await pauseGate();
     try {
       await gap(signal);
-      const verdict = await probeConversationExistence(
-        orgId,
-        item.uuid,
-        signal,
-      );
+      const isThread = isThreadEntry(item.uuid, index.chats?.[item.uuid]);
+      let verdict = isThread
+        ? await probeThreadExistence(item.channel_id, item.uuid, signal)
+        : await probeConversationExistence(orgId, item.uuid, signal);
+      if (isThread && verdict === "missing" && !threadProbeTrusted) {
+        verdict = "uncertain";
+      }
       if (verdict === "missing") {
         confirmedGone.push(item);
         stats.confirmed_missing += 1;

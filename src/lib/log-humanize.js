@@ -87,13 +87,32 @@ export function humanizeLogLine(line, locale = "en") {
     );
   }
   if (/^Scarico lista conversazioni/i.test(s)) {
-    return t(loc, "Listing conversations…", "Elenco le conversazioni…");
+    return t(
+      loc,
+      "Listing classic chats (outside channels)…",
+      "Elenco le chat classiche (fuori dai canali)…",
+    );
   }
   if (/^Conversazioni elencate:\s*(\d+)/i.test(s)) {
     return t(
       loc,
-      `Conversations found so far: ${RegExp.$1}`,
-      `Conversazioni trovate finora: ${RegExp.$1}`,
+      `Classic chats found so far: ${RegExp.$1}`,
+      `Chat classiche trovate finora: ${RegExp.$1}`,
+    );
+  }
+  m = s.match(/^Liste chat dei progetti: salto (\d+) progetti su canale\./i);
+  if (m) {
+    return t(
+      loc,
+      `Project chat lists: skipping ${m[1]} projects on channels (covered by threads).`,
+      `Liste chat dei progetti: salto ${m[1]} progetti su canale (coperti dai thread).`,
+    );
+  }
+  if (/^Verifica thread non affidabile/i.test(s)) {
+    return t(
+      loc,
+      "Thread check unreliable: no thread will be moved.",
+      s,
     );
   }
   if (/^Integro le chat elencate dentro i progetti/i.test(s)) {
@@ -260,6 +279,15 @@ export function humanizeLogLine(line, locale = "en") {
       loc,
       `[${m[1]}/${m[2]}] Downloading chat: ${m[3]}`,
       `[${m[1]}/${m[2]}] Scarico la chat: ${m[3]}`,
+    );
+  }
+
+  m = s.match(/^\[(\d+)\/(\d+)\]\s*Catturo thread:\s*(.+?)(?:\s*\(cmsg_[^)]*\))?$/i);
+  if (m) {
+    return t(
+      loc,
+      `[${m[1]}/${m[2]}] Downloading thread: ${m[3]}`,
+      `[${m[1]}/${m[2]}] Scarico il thread: ${m[3]}`,
     );
   }
 

@@ -22,6 +22,7 @@ import {
   listChannelThreadItems,
   mergeListedItems,
   summarizeThreadsAgainstIndex,
+  channelIdOf,
 } from "./channel-threads.js";
 
 function resolveProjectFolder(index, projectUuid, projectEmbed) {
@@ -111,8 +112,16 @@ export async function planCapture(root, options = {}) {
   );
   throwIfAborted(signal);
 
+  const projectsToMerge = force
+    ? projects
+    : projects.filter((p) => !channelIdOf(p));
+  if (projectsToMerge.length < projects.length) {
+    log(
+      `Liste chat dei progetti: salto ${projects.length - projectsToMerge.length} progetti su canale.`,
+    );
+  }
   onStatus("Integro le chat dei progetti…");
-  const mergedChats = await mergeProjectConversations(orgId, projects, list, {
+  const mergedChats = await mergeProjectConversations(orgId, projectsToMerge, list, {
     signal,
     onError: (project, err) => {
       const label = project?.name || project?.uuid || "?";
@@ -120,12 +129,14 @@ export async function planCapture(root, options = {}) {
     },
   });
   list = mergedChats.list;
-  log(
-    `Conversazioni dai progetti: +${mergedChats.added} assenti dalla lista globale, ` +
-      `${mergedChats.refreshed} con updated_at più recente` +
-      (mergedChats.failed ? `, ${mergedChats.failed} progetti non letti` : "") +
-      ".",
-  );
+  if (projectsToMerge.length) {
+    log(
+      `Conversazioni dai progetti: +${mergedChats.added} assenti dalla lista globale, ` +
+        `${mergedChats.refreshed} con updated_at più recente` +
+        (mergedChats.failed ? `, ${mergedChats.failed} progetti non letti` : "") +
+        ".",
+    );
+  }
 
   onStatus("Elenco i thread dei canali…");
   const channelThreads = await listChannelThreadItems(projects, {
