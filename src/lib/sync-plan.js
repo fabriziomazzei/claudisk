@@ -113,9 +113,11 @@ export async function planCapture(root, options = {}) {
   log(classicListLogLine(classic));
   throwIfAborted(signal);
 
-  const projectsToMerge = force
+  // I progetti solo canale non hanno una lista chat su /projects.
+  const projectsToMerge = (force
     ? projects
-    : projects.filter((p) => !channelIdOf(p));
+    : projects.filter((p) => !channelIdOf(p))
+  ).filter((p) => !p.channel_only);
   if (projectsToMerge.length < projects.length) {
     log(
       `Liste chat dei progetti: salto ${projects.length - projectsToMerge.length} progetti su canale.`,

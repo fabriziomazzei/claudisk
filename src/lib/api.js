@@ -170,7 +170,83 @@ export async function resolveOrgId(signal) {
   throw new Error("Impossibile determinare orgId (cookie e /api/organizations vuoti).");
 }
 
-export async function listAllProjects(orgId, onPage, signal) {
+/**
+ * Canali Claude (/v1/code/channels). I progetti creati dopo il passaggio ai
+ * canali esistono solo qui: non compaiono nella lista progetti.
+ * @param {AbortSignal} [signal]
+ */
+export async function listChannels(signal) {
+  const all = [];
+  const seen = new Set();
+  let cursor = "";
+  for (let page = 0; page < 20; page += 1) {
+    throwIfAborted(signal);
+    if (page > 0) await gap(signal);
+    const query = new URLSearchParams({
+      scope: "joined",
+      include_archived: "true",
+      limit: "200",
+    });
+    if (cursor) query.set("cursor", cursor);
+    const body = await claudeFetchJson(`/v1/code/channels?${query}`, {
+      signal,
+      maxAttempts: 2,
+    });
+    const batch = Array.isArray(body?.data) ? body.data : [];
+    let fresh = 0;
+    for (const channel of batch) {
+      const id = channel?.id;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      all.push(channel);
+      fresh += 1;
+    }
+    const next = body?.next_cursor || body?.pagination?.next_cursor || "";
+    if (!fresh || !next || next === cursor) break;
+    cursor = next;
+  }
+  return all;
+}
+
+/**
+ * Progetti + canali senza progetto di origine (progetti nuovi).
+ * I canali nati da un vecchio progetto sono già coperti da moved_to.
+ * Un errore sui canali non blocca il sync: torna la sola lista progetti.
+ * @param {string} orgId
+ * @param {Function | null} onPage
+ * @param {AbortSignal} [signal]
+ * @param {{ onChannelError?: (err: any) => void }} [opts]
+ */
+export async function listAllProjects(orgId, onPage, signal, opts = {}) {
+  const projects = await listLegacyProjects(orgId, onPage, signal);
+  let channels = [];
+  try {
+    channels = await listChannels(signal);
+  } catch (err) {
+    if (err?.name === "AbortError") throw err;
+    opts.onChannelError?.(err);
+    return projects;
+  }
+  const linked = new Set(
+    projects.map((p) => p?.moved_to?.channel_tagged_id).filter(Boolean),
+  );
+  for (const channel of channels) {
+    if (linked.has(channel.id)) continue;
+    projects.push({
+      uuid: channel.id,
+      name: channel.name || channel.id,
+      description: channel.topic || "",
+      created_at: channel.created_at || null,
+      updated_at: channel.updated_at || channel.created_at || null,
+      archived_at: channel.archived_at || null,
+      channel_id: channel.id,
+      channel_only: true,
+    });
+  }
+  return projects;
+}
+
+async function listLegacyProjects(orgId, onPage, signal) {
   const all = [];
   const seen = new Set();
   let offset = 0;

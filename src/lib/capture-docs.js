@@ -98,7 +98,10 @@ export async function captureProjectDocs(root, index, orgId, options = {}) {
     orgId,
     ({ totalSoFar }) => log(`Progetti elencati: ${totalSoFar}`),
     signal,
+    { onChannelError: (err) => log(`Canali non letti: ${err?.message || err}`) },
   );
+  const channelOnly = projects.filter((p) => p.channel_only).length;
+  if (channelOnly) log(`Progetti solo su canale: ${channelOnly}`);
 
   if (onlyProjectIds != null) {
     const set = new Set(onlyProjectIds);
@@ -141,8 +144,12 @@ export async function captureProjectDocs(root, index, orgId, options = {}) {
 
     try {
       log(`[${i + 1}/${projects.length}] Meta: ${label}`);
-      await gap(signal);
-      const meta = await fetchProjectMeta(orgId, projectId, signal);
+      // Progetto nato come canale: niente meta/docs/file su /projects.
+      const channelOnly = Boolean(summary.channel_only);
+      if (!channelOnly) await gap(signal);
+      const meta = channelOnly
+        ? summary
+        : await fetchProjectMeta(orgId, projectId, signal);
       const currentUpdated = meta.updated_at || null;
       const prevProject = projectsIndex[projectId];
       const savedUpdated = prevProject?.updated_at || null;
@@ -181,6 +188,11 @@ export async function captureProjectDocs(root, index, orgId, options = {}) {
         updated_at: currentUpdated,
         visto_il: new Date().toISOString(),
       };
+
+      if (channelOnly) {
+        stats.projects_skipped += 1;
+        continue;
+      }
 
       if (skipProjectsByUpdatedAt && wouldSkip) {
         stats.projects_skipped += 1;

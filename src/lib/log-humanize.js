@@ -79,6 +79,22 @@ export function humanizeLogLine(line, locale = "en") {
       `Progetti trovati finora: ${RegExp.$1}`,
     );
   }
+  m = s.match(/^Progetti solo su canale:\s*(\d+)/);
+  if (m) {
+    return t(
+      loc,
+      `Projects created as channels: ${m[1]}`,
+      `Progetti creati come canali: ${m[1]}`,
+    );
+  }
+  m = s.match(/^Canali non letti:\s*(.+)$/);
+  if (m) {
+    return t(
+      loc,
+      `Could not read channels (new projects skipped): ${m[1]}`,
+      `Canali non letti (progetti nuovi saltati): ${m[1]}`,
+    );
+  }
   if (/^Progetti totali:\s*(\d+)/i.test(s)) {
     return t(
       loc,

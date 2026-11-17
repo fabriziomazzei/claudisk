@@ -127,9 +127,11 @@ export async function captureConversations(root, index, orgId, options = {}) {
   const projectsForChats = await listAllProjects(orgId, null, signal);
   // Nel delta i progetti spostati sui canali sono coperti dai thread:
   // la loro lista chat non aggiunge nulla. Il sync completo la rilegge.
-  const projectsToMerge = force
+  // I progetti solo canale non hanno una lista chat su /projects.
+  const projectsToMerge = (force
     ? projectsForChats
-    : projectsForChats.filter((p) => !channelIdOf(p));
+    : projectsForChats.filter((p) => !channelIdOf(p))
+  ).filter((p) => !p.channel_only);
   if (projectsToMerge.length < projectsForChats.length) {
     log(
       `Liste chat dei progetti: salto ${projectsForChats.length - projectsToMerge.length} progetti su canale.`,
