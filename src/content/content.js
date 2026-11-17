@@ -40,7 +40,11 @@
     );
   }
 
-  async function fetchAllConversationSummaries(orgId) {
+  /**
+   * Classic chats, newest first. Stops at the first page where every chat is
+   * already in the mirror and unchanged: older pages hold nothing new.
+   */
+  async function fetchRecentConversationSummaries(orgId, isUnchanged) {
     const all = [];
     let offset = 0;
     const limit = 30;
@@ -60,10 +64,27 @@
       const batch = Array.isArray(body?.data) ? body.data : [];
       all.push(...batch);
       if (!body?.has_more || batch.length === 0) break;
+      if (batch.every(isUnchanged)) break;
       offset += limit;
     }
 
     return all;
+  }
+
+  /** Channels: projects created after the move to channels live only here. */
+  async function fetchChannels() {
+    const res = await fetch(
+      "https://claude.ai/v1/code/channels?scope=joined&include_archived=true&limit=200",
+      {
+        credentials: "include",
+        headers: { Accept: "application/json", "anthropic-version": "2023-06-01" },
+      },
+    );
+    if (!res.ok) {
+      throw new Error(`channel list HTTP ${res.status}`);
+    }
+    const body = await res.json();
+    return Array.isArray(body?.data) ? body.data : [];
   }
 
   async function fetchAllProjects(orgId) {
@@ -155,7 +176,10 @@
     }
 
     try {
-      const list = await fetchAllConversationSummaries(orgId);
+      const list = await fetchRecentConversationSummaries(
+        orgId,
+        (item) => Boolean(map[item?.uuid]) && !isStrictlyNewer(item?.updated_at, map[item.uuid]),
+      );
       let changed = 0;
       for (const item of list) {
         if (!item?.uuid) continue;
@@ -175,6 +199,22 @@
         } catch (err) {
           if (!isExpectedBadgeFetchError(err)) {
             console.warn("[claudisk] badge projects:", err);
+          }
+        }
+      }
+
+      // A channel with activity after the last successful sync has new or
+      // updated threads (or is a new project). Cleared by the next sync.
+      if (sync?.lastSuccessAt) {
+        try {
+          const channels = await fetchChannels();
+          for (const channel of channels) {
+            const last = channel?.last_activity_at || channel?.created_at;
+            if (isStrictlyNewer(last, sync.lastSuccessAt)) changed += 1;
+          }
+        } catch (err) {
+          if (!isExpectedBadgeFetchError(err)) {
+            console.warn("[claudisk] badge channels:", err);
           }
         }
       }
