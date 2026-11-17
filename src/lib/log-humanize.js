@@ -93,6 +93,16 @@ export function humanizeLogLine(line, locale = "en") {
       "Elenco le chat classiche (fuori dai canali)…",
     );
   }
+  m = s.match(/^Chat classiche elencate: (\d+)( \(le più vecchie sono già nell'indice\))?\.$/);
+  if (m) {
+    return m[2]
+      ? t(
+          loc,
+          `Classic chats: read ${m[1]} recent ones, the older ones are already in the index.`,
+          `Chat classiche: lette le ${m[1]} più recenti, le altre sono già nell'indice.`,
+        )
+      : t(loc, `Classic chats: ${m[1]}.`, `Chat classiche: ${m[1]}.`);
+  }
   if (/^Conversazioni elencate:\s*(\d+)/i.test(s)) {
     return t(
       loc,

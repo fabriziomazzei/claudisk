@@ -254,6 +254,52 @@ export async function listAllConversations(orgId, onPage, signal) {
   return all;
 }
 
+/**
+ * Lista chat classiche per il delta. La lista arriva dalla più recente:
+ * ci si ferma alla prima pagina in cui nessuna chat è nuova o aggiornata
+ * rispetto all'indice. Le chat dopo quella pagina sono più vecchie e già note.
+ * @param {string} orgId
+ * @param {(item: any) => boolean} isUnchanged
+ * @param {AbortSignal} [signal]
+ * @returns {Promise<{ list: any[], complete: boolean, oldestUpdatedAt: string }>}
+ */
+export async function listRecentConversations(orgId, isUnchanged, signal) {
+  const all = [];
+  let offset = 0;
+  const limit = 30;
+  let complete = true;
+
+  for (;;) {
+    throwIfAborted(signal);
+    if (offset > 0) await gap(signal);
+    const body = await claudeFetchJson(
+      `/api/organizations/${orgId}/chat_conversations_v2?limit=${limit}&offset=${offset}&consistency=eventual`,
+      { signal },
+    );
+    const batch = Array.isArray(body?.data) ? body.data : [];
+    all.push(...batch);
+
+    const hasMore = Boolean(body?.has_more);
+    if (!hasMore || batch.length === 0) break;
+    if (batch.every((item) => isUnchanged(item))) {
+      complete = false;
+      break;
+    }
+    offset += limit;
+  }
+
+  let oldestMs = Infinity;
+  let oldestUpdatedAt = "";
+  for (const item of all) {
+    const ms = Date.parse(item?.updated_at || "");
+    if (Number.isFinite(ms) && ms < oldestMs) {
+      oldestMs = ms;
+      oldestUpdatedAt = item.updated_at;
+    }
+  }
+  return { list: all, complete, oldestUpdatedAt };
+}
+
 function conversationUpdatedMs(item) {
   const ms = Date.parse(item?.updated_at || "");
   return Number.isNaN(ms) ? 0 : ms;

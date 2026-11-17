@@ -39,12 +39,15 @@ function isThreadEntry(uuid, entry) {
  * @param {Iterable<string>} listedUuids
  * Nel delta i thread sono esclusi (lista parziale); nel sync completo
  * entrano e vengono verificati sull'endpoint del singolo thread.
- * @param {{ force?: boolean, now?: number }} [opts]
+ * classicListedSince: se la lista delle chat classiche è parziale, le chat
+ * con visto_il precedente non sono state elencate e non sono candidate.
+ * @param {{ force?: boolean, now?: number, classicListedSince?: string }} [opts]
  * @returns {{ uuid: string, titolo: string, percorso: string, visto_il: string, channel_id: string | null }[]}
  */
 export function listMissingFromIndex(index, listedUuids, opts = {}) {
   const force = Boolean(opts.force);
   const now = opts.now ?? Date.now();
+  const listedSinceMs = Date.parse(opts.classicListedSince || "");
   const listed = new Set(
     [...listedUuids].map((u) => String(u)).filter(Boolean),
   );
@@ -61,6 +64,7 @@ export function listMissingFromIndex(index, listedUuids, opts = {}) {
     if (!force) {
       const visto = entry.visto_il ? Date.parse(entry.visto_il) : NaN;
       if (!Number.isFinite(visto) || now - visto > WINDOW_MS) continue;
+      if (Number.isFinite(listedSinceMs) && visto < listedSinceMs) continue;
     }
 
     out.push({
@@ -100,6 +104,7 @@ export async function processDeletions(
   const {
     force = false,
     signal,
+    classicListedSince = "",
     firstSyncDone = false,
     detectDeletions = true,
     onLog = () => {},
@@ -134,7 +139,10 @@ export async function processDeletions(
   }
 
   const listed = new Set([...listedUuids].map((u) => String(u)).filter(Boolean));
-  const missingFromList = listMissingFromIndex(index, listed, { force });
+  const missingFromList = listMissingFromIndex(index, listed, {
+    force,
+    classicListedSince,
+  });
   if (!missingFromList.length) {
     log("Nessuna chat assente dalla lista da verificare.");
     return stats;

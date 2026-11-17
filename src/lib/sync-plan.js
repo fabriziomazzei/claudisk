@@ -5,7 +5,6 @@
 import {
   resolveOrgId,
   listAllProjects,
-  listAllConversations,
   mergeProjectConversations,
   setRequestGapMs,
   setRequestTimeoutMs,
@@ -15,6 +14,7 @@ import {
 import { loadIndex } from "./index-store.js";
 import { isStrictlyNewer } from "./index-store.js";
 import { listMissingFromIndex } from "./deletions.js";
+import { listClassicChats, classicListLogLine } from "./capture-chats.js";
 import { loadSettings } from "./settings.js";
 import { loadSyncMeta } from "./sync-meta.js";
 import { sanitizeFileName } from "./names.js";
@@ -105,11 +105,12 @@ export async function planCapture(root, options = {}) {
   }
 
   onStatus("Elenco conversazioni…");
-  let list = await listAllConversations(
-    orgId,
-    ({ totalSoFar }) => log(`Conversazioni elencate: ${totalSoFar}`),
+  const classic = await listClassicChats(orgId, index.chats || {}, {
+    force,
     signal,
-  );
+  });
+  let list = classic.list;
+  log(classicListLogLine(classic));
   throwIfAborted(signal);
 
   const projectsToMerge = force
@@ -221,7 +222,10 @@ export async function planCapture(root, options = {}) {
     ? listMissingFromIndex(
         index,
         list.map((c) => c?.uuid).filter(Boolean),
-        { force },
+        {
+          force,
+          classicListedSince: classic.complete ? "" : classic.oldestUpdatedAt,
+        },
       )
     : [];
 

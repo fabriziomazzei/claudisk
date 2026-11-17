@@ -5,6 +5,7 @@
 import {
   listAllProjects,
   listAllConversations,
+  listRecentConversations,
   mergeProjectConversations,
   fetchConversation,
   gap,
@@ -90,6 +91,7 @@ export async function captureConversations(root, index, orgId, options = {}) {
     progress?.beginPhase("chats", 1, "Chat");
     progress?.step("saltata");
     return {
+      classicListedSince: "",
       conversations_total: 0,
       conversations_to_update: 0,
       conversations_captured: 0,
@@ -114,11 +116,13 @@ export async function captureConversations(root, index, orgId, options = {}) {
   }
 
   log("Scarico lista conversazioni…");
-  let list = await listAllConversations(
-    orgId,
-    ({ totalSoFar }) => log(`Conversazioni elencate: ${totalSoFar}`),
+  const classic = await listClassicChats(orgId, chatsIndex, {
+    // Il retry mirato cerca chat precise: lista intera.
+    force: force || onlyChatUuids != null,
     signal,
-  );
+  });
+  let list = classic.list;
+  log(classicListLogLine(classic));
 
   const projectsForChats = await listAllProjects(orgId, null, signal);
   // Nel delta i progetti spostati sui canali sono coperti dai thread:
@@ -492,5 +496,40 @@ export async function captureConversations(root, index, orgId, options = {}) {
       `, errori ${stats.errors.length}.`,
     );
 
-  return { ...stats, listedUuids };
+  return {
+    ...stats,
+    listedUuids,
+    // Lista classica parziale: le chat più vecchie di questa data non sono
+    // state elencate, quindi non vanno trattate come assenti.
+    classicListedSince: classic.complete ? "" : classic.oldestUpdatedAt,
+  };
+}
+
+/**
+ * Sync completo: tutta la lista. Delta: solo finché ci sono novità.
+ * @param {string} orgId
+ * @param {Record<string, any>} chatsIndex
+ * @param {{ force?: boolean, signal?: AbortSignal }} opts
+ */
+export async function listClassicChats(orgId, chatsIndex, opts = {}) {
+  const { force = false, signal } = opts;
+  const indexed = Object.keys(chatsIndex || {}).length > 0;
+  if (force || !indexed) {
+    const list = await listAllConversations(orgId, null, signal);
+    return { list, complete: true, oldestUpdatedAt: "" };
+  }
+  return listRecentConversations(
+    orgId,
+    (item) => {
+      const prev = chatsIndex[item?.uuid];
+      return Boolean(prev?.visto_il) && !isStrictlyNewer(item?.updated_at, prev.visto_il);
+    },
+    signal,
+  );
+}
+
+export function classicListLogLine(classic) {
+  return classic.complete
+    ? `Chat classiche elencate: ${classic.list.length}.`
+    : `Chat classiche elencate: ${classic.list.length} (le più vecchie sono già nell'indice).`;
 }

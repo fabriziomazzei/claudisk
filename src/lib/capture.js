@@ -180,6 +180,7 @@ export async function runFullCapture(root, options = {}) {
       {
         force,
         signal,
+        classicListedSince: chatStats.classicListedSince || "",
         firstSyncDone: firstSyncDoneAtStart,
         detectDeletions: true,
         onLog,
